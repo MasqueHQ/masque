@@ -125,6 +125,11 @@ button.tl{background:none;border-width:0 0 1px;cursor:pointer}
 .ledger a{text-decoration-color:var(--line-2);text-underline-offset:3px}
 
 /* IV: token */
+.ch .in.in-vid{width:min(780px,100%)}.ch .in-vid > .rv{width:100%}
+.vid{position:relative;margin:26px 0 30px;border:1px solid var(--line-2);background:#000;box-shadow:0 40px 120px rgba(0,0,0,.6)}
+.vid video{display:block;width:100%;height:auto}
+.vid button{position:absolute;left:14px;bottom:14px;height:34px;padding:0 14px;border:1px solid var(--line-2);background:rgba(10,9,8,.72);color:var(--tx);font:600 .66rem var(--f);letter-spacing:.14em;text-transform:uppercase;cursor:pointer}
+.vid button:hover{border-color:var(--gold)}
 .facts{margin-top:30px;border-top:1px solid var(--line-2)}
 .facts div{display:flex;justify-content:space-between;gap:18px;padding:13px 0;border-bottom:1px solid var(--line);font-size:.95rem}
 .facts dt{color:var(--tx-3)}
@@ -222,11 +227,9 @@ footer a{text-decoration-color:var(--line-2);text-underline-offset:3px}
   </section>
 
   <section class="ch r" id="iv" data-side="r">
-    <div class="in">
-      <h2 class="rv">$MASQ, on the record.</h2>
-      <dl class="facts rv">
-        <div><dt>Launch</dt><dd>Pons bonding curve, Robinhood Chain</dd></div>
-      </dl>
+    <div class="in in-vid">
+      <h2 class="rv">See it work.</h2>
+      <div class="vid rv"><video id="iv-v" src="media/masque-demo.mp4" poster="media/masque-demo.jpg" muted loop playsinline preload="metadata" aria-label="Masque demo video"></video><button type="button" id="iv-snd" aria-pressed="false">Sound on</button></div>
       <div class="row rv"><a class="btn" id="lb-buy" href="#iv">Buy on Pons</a><a class="tl" id="lb-chart" href="#iv">Chart</a></div>
     </div>
   </section>
@@ -366,6 +369,13 @@ const TOKEN = { ca: "", pons: "" };   // ca = 0x... contract, pons = token page 
 (() => { const d = document.getElementById("demo"), v = document.getElementById("demo-v");
   document.getElementById("demo-open").onclick = () => { d.showModal(); v.play().catch(() => {}); };
   d.addEventListener("close", () => v.pause()); d.onclick = e => { if (e.target === d) d.close(); }; })();
+</script>
+<script>
+/* chapter IV: the demo plays by itself (muted) while it is on screen */
+(() => { const v = document.getElementById("iv-v"), b = document.getElementById("iv-snd"); if (!v) return;
+  new IntersectionObserver(([e]) => { if (e.isIntersecting) v.play().catch(() => {}); else v.pause(); }, { threshold: .35 }).observe(v);
+  b.onclick = () => { v.muted = !v.muted; b.textContent = v.muted ? "Sound on" : "Sound off"; b.setAttribute("aria-pressed", !v.muted); if (v.paused) v.play().catch(() => {}); };
+})();
 </script>
 </body>
 </html>
