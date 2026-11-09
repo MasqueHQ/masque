@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6dc96"/><stop offset=".5" stop-color="#d9a548"/><stop offset="1" stop-color="#9a6a22"/></linearGradient></defs>
+<!-- Venetian mask, upswept wings, almond eyes, a diamond at the brow -->
+<path fill="url(#g)" fill-rule="evenodd" d="M1.5 15 C7 21 13 20.5 19 22 C25 23.5 28.5 25.5 32 25.5 C35.5 25.5 39 23.5 45 22 C51 20.5 57 21 62.5 15
+C62.5 30 56 41 46 41 C40 41 36 37.5 32 33 C28 37.5 24 41 18 41 C8 41 1.5 30 1.5 15Z
+M10.5 29.5 C14.5 25 22 25 26.5 30 C22 33 15 33 10.5 29.5Z M37.5 30 C42 25 49.5 25 53.5 29.5 C49 33 42 33 37.5 30Z"/>
+<path fill="url(#g)" d="M32 13 L35 18.5 L32 24 L29 18.5Z"/>
+<path fill="none" stroke="#0a0908" stroke-width=".7" opacity=".5" d="M5 20.5 C9 23.5 14 23.8 19 25 C25 26.6 28.5 28.4 32 28.4 C35.5 28.4 39 26.6 45 25 C50 23.8 55 23.5 59 20.5"/>
+</svg>

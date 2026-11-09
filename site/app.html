@@ -1,0 +1,1564 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Masque Terminal</title>
+<meta name="description" content="Trade Robinhood Chain stock tokens and crypto from your own wallet. Live pool prices, real trade tape, every pool and every Pons launch. Masque never holds your funds.">
+<meta property="og:title" content="Masque Terminal">
+<meta property="og:description" content="Open markets, private holders. Stocks and crypto on Robinhood Chain, traded from your own wallet.">
+<meta name="theme-color" content="#060606">
+<link rel="icon" type="image/svg+xml" href="brand/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Manrope:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Masque terminal. A trading desk in the house of the landing film: near-black, the gold of the blindfold as the
+   only accent, Cormorant for names, Manrope for the interface, Geist Mono for every number read off the chain.
+   Desk = market rail | market (price, chart from real swaps, trade tape) | ticket. Hairlines, no cards in cards.
+   Everything shown is read live; what is not live (perps, vault) says so and shows the statue instead of fake data. */
+:root{
+  --bg:#060606; --bg-2:#0b0b0a; --bg-3:#121210; --bg-4:#191916;
+  --tx:#f2ede5; --tx-2:#b3ada3; --tx-3:#76716a;
+  --line:rgba(242,237,229,.08); --line-2:rgba(242,237,229,.16);
+  --gold:#d9a548; --gold-2:#ecc479; --gold-d:rgba(217,165,72,.12);
+  --up:#7fcf9a; --dn:#ec8574;
+  --serif:"Cormorant Garamond",Georgia,serif;
+  --f:"Manrope",ui-sans-serif,system-ui,sans-serif;
+  --m:"Geist Mono",ui-monospace,Consolas,monospace;
+  --ease:cubic-bezier(.23,1,.32,1);
+  --hh:60px;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--bg);color:var(--tx);font:400 14px/1.5 var(--f);-webkit-font-smoothing:antialiased}
+html,body{overflow-x:clip}
+body{min-height:100svh;background:var(--bg)}
+a{color:inherit}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:0}
+:focus-visible{outline:1px solid var(--gold);outline-offset:2px}
+.skip{position:absolute;left:-999px;top:8px;background:var(--gold);color:#120d05;padding:8px 14px;z-index:30}
+.skip:focus{left:12px}
+.m{font-family:var(--m);font-variant-numeric:tabular-nums}
+.up{color:var(--up)} .dn{color:var(--dn)}
+
+/* header */
+header{position:sticky;top:0;z-index:20;height:var(--hh);background:rgba(6,6,6,.94);border-bottom:1px solid var(--line);backdrop-filter:blur(8px)}
+header .in{display:flex;align-items:center;gap:28px;height:100%;padding:0 20px}
+.mark{display:flex;align-items:center;gap:10px;font:500 1.2rem/1 var(--serif);letter-spacing:.18em;text-decoration:none}
+.mark svg{width:22px;height:22px}
+.tabs{display:flex;height:100%}
+.tabs a{position:relative;display:flex;align-items:center;gap:6px;padding:0 16px;font:600 .74rem var(--f);letter-spacing:.06em;text-decoration:none;color:var(--tx-3);transition:color .2s}
+.tabs a:hover{color:var(--tx)}
+.tabs a[aria-current="page"]{color:var(--tx)}
+.tabs a[aria-current="page"]::after{content:"";position:absolute;left:16px;right:16px;bottom:-1px;height:1px;background:var(--gold)}
+.tabs a sup{font:500 .6rem var(--m);color:var(--gold);letter-spacing:0}
+.hr{margin-left:auto;display:flex;align-items:center;gap:14px}
+.chain{display:flex;align-items:center;gap:8px;font:400 .72rem var(--m);color:var(--tx-3);white-space:nowrap}
+.chain i{width:6px;height:6px;border-radius:50%;background:var(--tx-3)}
+.chain.live i{background:var(--up);box-shadow:0 0 0 4px rgba(127,207,154,.12)}
+.wallet{height:36px;padding:0 16px;border:1px solid var(--gold);font:600 .74rem var(--f);letter-spacing:.06em;color:var(--gold-2);transition:background-color .2s,color .2s;white-space:nowrap}
+.wallet:hover{background:var(--gold);color:#120d05}
+.wallet.on{font:500 .78rem var(--m);letter-spacing:0;border-color:var(--line-2);color:var(--tx)}
+@media (max-width:980px){.chain span{display:none}}
+@media (max-width:760px){
+  header{height:auto}
+  header .in{flex-wrap:wrap;gap:0 12px;padding:10px 16px 0}
+  .tabs{order:3;width:100%;height:44px;overflow-x:auto;scrollbar-width:none;margin:6px -16px 0;padding:0 4px}
+  .tabs a{padding:0 12px;flex:none}
+  .tabs a[aria-current="page"]::after{left:12px;right:12px}
+}
+
+.pane[hidden]{display:none}
+
+/* ---------- desk (swap) ---------- */
+.desk{display:grid;grid-template-columns:288px minmax(0,1fr) 364px;height:calc(100dvh - var(--hh));min-height:640px}
+.desk > *{min-height:0;overflow:auto;scrollbar-width:thin;scrollbar-color:var(--line-2) transparent}
+
+/* rail */
+.rail{border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden}
+.cats{display:flex;border-bottom:1px solid var(--line);flex:none}
+.cats button{flex:1;height:44px;font:600 .74rem var(--f);letter-spacing:.04em;color:var(--tx-3);border-bottom:1px solid transparent;margin-bottom:-1px;transition:color .2s}
+.cats button:hover{color:var(--tx)}
+.cats button[aria-pressed="true"]{color:var(--tx);border-bottom-color:var(--gold)}
+.cats button[hidden]{display:none}
+.find{flex:none;padding:10px 12px;border-bottom:1px solid var(--line)}
+.find input{width:100%;height:34px;padding:0 12px;background:var(--bg-3);border:1px solid var(--line);outline:none;font:400 .8rem var(--m);transition:border-color .2s}
+.find input:focus{border-color:var(--gold)}
+.find button{margin-top:8px;width:100%;height:32px;border:1px dashed var(--gold);color:var(--gold-2);font:500 .74rem var(--m)}
+.find button[hidden]{display:none}
+.mlist{flex:1;overflow:auto;scrollbar-width:thin;scrollbar-color:var(--line-2) transparent}
+.mrow{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;padding:10px 14px;text-align:left;border-bottom:1px solid var(--line);transition:background-color .15s}
+.mrow:hover{background:rgba(242,237,229,.025)}
+.mrow[aria-pressed="true"]{background:var(--gold-d);box-shadow:inset 2px 0 0 var(--gold)}
+.glyph{width:30px;height:30px;display:grid;place-items:center;border:1px solid var(--line-2);font:500 .62rem var(--m);color:var(--tx-2);letter-spacing:-.02em}
+.mrow[aria-pressed="true"] .glyph{border-color:var(--gold);color:var(--gold-2)}
+.glyph{position:relative;overflow:hidden;flex:none}
+.glyph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:var(--bg-3)}
+.glyph.lg{width:52px;height:52px;font-size:.78rem}
+.tkrow{display:flex;align-items:center;gap:14px}
+.coin{display:flex;align-items:center;gap:12px}
+.coin .glyph{width:34px;height:34px}
+.mrow b{display:block;font-weight:700;font-size:.86rem;letter-spacing:.01em}
+.mrow small{display:block;color:var(--tx-3);font-size:.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mrow .r{text-align:right;font:400 .8rem var(--m);font-variant-numeric:tabular-nums}
+.mrow .r small{font-size:.68rem}
+.railnote{flex:none;padding:10px 14px;border-top:1px solid var(--line);font-size:.7rem;color:var(--tx-3)}
+
+/* market */
+.mkt{display:flex;flex-direction:column}
+.mhead{display:flex;flex-wrap:wrap;align-items:end;gap:14px 36px;padding:22px 26px 18px;border-bottom:1px solid var(--line)}
+.who h1{font:400 3rem/.9 var(--serif);letter-spacing:.005em}
+.who p{margin-top:8px;color:var(--tx-3);font-size:.78rem;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.who p a[hidden]{display:none}
+.who p a{font-family:var(--m);color:var(--tx-2);text-decoration-color:var(--line-2);text-underline-offset:3px}
+.kind{padding:1px 7px;border:1px solid var(--line-2);font:500 .64rem var(--m);color:var(--tx-2)}
+.big{display:flex;align-items:baseline;gap:12px}
+.big .px{font:400 2.3rem/1 var(--m);letter-spacing:-.03em}
+.big .ch{font:500 .86rem var(--m)}
+.stats{display:flex;gap:0;margin-left:auto}
+.stats div{padding:0 18px;border-left:1px solid var(--line)}
+.stats dt{font-size:.68rem;color:var(--tx-3)}
+.stats dd{margin-top:3px;font:400 .9rem var(--m);white-space:nowrap}
+.chartbar{display:flex;align-items:center;gap:12px;padding:10px 26px;border-bottom:1px solid var(--line)}
+.tf{display:flex;gap:2px}
+.tf button{height:28px;padding:0 10px;font:500 .72rem var(--m);color:var(--tx-3);border:1px solid transparent;transition:color .2s,border-color .2s}
+.tf button:hover{color:var(--tx)}
+.tf button[aria-pressed="true"]{color:var(--gold-2);border-color:rgba(217,165,72,.45)}
+.chartbar .src{margin-left:auto;font-size:.7rem;color:var(--tx-3);text-align:right}
+.chart{position:relative;flex:none;height:max(300px,44vh);border-bottom:1px solid var(--line);background:radial-gradient(70% 90% at 50% 100%,rgba(217,165,72,.05),transparent 70%)}
+.chart canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:pan-y}
+.chart .note{position:absolute;left:26px;top:16px;font-size:.76rem;color:var(--tx-3);pointer-events:none}
+.tip{position:absolute;pointer-events:none;padding:8px 10px;background:rgba(18,18,16,.94);border:1px solid var(--line-2);font:400 .72rem/1.5 var(--m);white-space:nowrap;opacity:0;transition:opacity .12s}
+.tape h2{display:flex;justify-content:space-between;align-items:baseline;padding:16px 26px 10px;font:400 1.5rem/1 var(--serif)}
+.tape h2 span{font:400 .7rem var(--f);color:var(--tx-3)}
+.tbl{width:100%;border-collapse:collapse;font-size:.82rem}
+.tbl th{height:34px;padding:0 14px;text-align:left;font:500 .68rem var(--f);color:var(--tx-3);border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{height:40px;padding:0 14px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl th:first-child,.tbl td:first-child{padding-left:26px}
+.tbl th:last-child,.tbl td:last-child{padding-right:26px}
+.tbl tbody tr{transition:background-color .15s}
+.tbl tbody tr:hover{background:rgba(242,237,229,.022)}
+.tbl .num{text-align:right;font-family:var(--m);font-variant-numeric:tabular-nums;font-size:.78rem}
+.tbl b{font-weight:700}
+.tbl small{color:var(--tx-3);margin-left:8px}
+.tbl a{text-decoration-color:var(--line-2);text-underline-offset:3px}
+.tbl .addr{font:400 .74rem var(--m);color:var(--tx-2)}
+.empty{padding:36px 26px;color:var(--tx-3);text-align:center;white-space:normal}
+
+/* ticket */
+.ticket{border-left:1px solid var(--line);padding:18px 18px 28px;background:var(--bg-2)}
+.side{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);margin-bottom:14px}
+.side button{height:40px;font:700 .78rem var(--f);letter-spacing:.06em;color:var(--tx-3);transition:background-color .2s,color .2s}
+.side button[aria-pressed="true"].buy{background:var(--up);color:#06120a}
+.side button[aria-pressed="true"].sell{background:var(--dn);color:#170805}
+.box{border:1px solid var(--line);background:var(--bg);padding:12px 14px;transition:border-color .2s}
+.box:focus-within{border-color:var(--gold)}
+.box + .box{margin-top:6px}
+.box label,.box .lbl{display:flex;justify-content:space-between;font-size:.72rem;color:var(--tx-3)}
+.box .bal{font:400 .7rem var(--m);color:var(--tx-3);padding:0}
+.box .bal:hover{color:var(--gold-2)}
+.row{display:flex;align-items:center;gap:10px;margin-top:6px}
+.row input{flex:1;min-width:0;background:transparent;border:0;outline:none;font:400 1.55rem var(--m);letter-spacing:-.03em}
+.row input::placeholder{color:var(--tx-3)}
+.row .out{flex:1;min-width:0;font:400 1.55rem var(--m);letter-spacing:-.03em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tok{display:flex;gap:3px}
+.tok button,.tok span{height:30px;padding:0 10px;border:1px solid var(--line-2);font:500 .74rem var(--m);display:inline-flex;align-items:center;transition:background-color .2s,color .2s}
+.tok button[aria-pressed="true"]{background:var(--tx);color:#0b0907;border-color:var(--tx)}
+.tok span{background:var(--gold-d);border-color:rgba(217,165,72,.4);color:var(--gold-2)}
+.quick{display:flex;gap:4px;margin-top:8px}
+.quick button{flex:1;height:26px;border:1px solid var(--line);font:500 .7rem var(--m);color:var(--tx-3);transition:color .2s,border-color .2s}
+.quick button:hover{color:var(--gold-2);border-color:rgba(217,165,72,.4)}
+.details{margin-top:14px;font-size:.78rem}
+.details div{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px dashed var(--line)}
+.details div:last-child{border-bottom:0}
+.details span:first-child{color:var(--tx-3)}
+.details span:last-child{font-family:var(--m);font-size:.74rem;text-align:right}
+.slip{display:flex;gap:3px}
+.slip button{border:1px solid var(--line);padding:1px 7px;font:500 .7rem var(--m);color:var(--tx-2)}
+.slip button[aria-pressed="true"]{border-color:var(--gold);color:var(--gold-2)}
+.go{width:100%;height:50px;margin-top:14px;background:var(--gold);color:#120d05;font:700 .82rem var(--f);letter-spacing:.04em;transition:background-color .2s,transform .12s,opacity .2s}
+.go:hover{background:var(--gold-2)}
+.go:active{transform:scale(.99)}
+.go:disabled{opacity:.42;cursor:default;transform:none}
+.msg{margin-top:12px;font-size:.78rem;color:var(--tx-2);min-height:1.3em;overflow-wrap:anywhere}
+.msg.err{color:var(--dn)} .msg.ok{color:var(--up)}
+.msg a{color:var(--gold-2)}
+.public{margin-top:14px;padding:12px 14px;border:1px solid rgba(236,133,116,.22);background:rgba(236,133,116,.05);font-size:.74rem;color:var(--tx-2)}
+.public b{color:var(--dn);font-weight:600}
+.warn{margin-top:8px;padding:10px 12px;border:1px solid rgba(217,165,72,.3);background:var(--gold-d);font-size:.74rem;color:var(--tx-2)}
+.warn[hidden]{display:none}
+
+@media (max-width:1180px){.desk{grid-template-columns:250px minmax(0,1fr) 330px}.stats div{padding:0 12px}}
+@media (max-width:1020px){
+  .desk{grid-template-columns:minmax(0,1fr);height:auto;min-height:0}
+  .desk > *{overflow:visible}
+  .mkt{display:contents}
+  .mhead{order:1} .chartbar{order:2} .chart{order:3}
+  .ticket{order:4;border-left:0;border-bottom:1px solid var(--line)} .tape{order:5;min-width:0} .rail{order:6;border-right:0;border-top:1px solid var(--line);max-height:none}
+  .mlist{max-height:520px}
+  .stats{margin-left:0;width:100%}
+  .stats div:first-child{border-left:0;padding-left:0}
+}
+@media (max-width:560px){
+  .mhead,.chartbar{padding-left:16px;padding-right:16px}
+  .who h1{font-size:2.4rem}
+  .big .px{font-size:1.8rem}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .stats div{border-left:0;padding:0}
+  .tbl th:first-child,.tbl td:first-child{padding-left:16px}
+  .tbl th:last-child,.tbl td:last-child{padding-right:16px}
+  .tape h2{padding-left:16px;padding-right:16px}
+  .tape .scroll .tbl{min-width:520px}
+}
+.scroll{overflow-x:auto}
+
+/* ---------- pages (pools, launches) ---------- */
+.page{max-width:1320px;margin:0 auto;padding:38px 24px 80px}
+.ptop{display:flex;justify-content:space-between;align-items:end;gap:24px;margin-bottom:24px;flex-wrap:wrap}
+.ptop h1{font:400 clamp(2.6rem,4.6vw,3.8rem)/.95 var(--serif)}
+.ptop p{color:var(--tx-2);max-width:54ch}
+.frame{border:1px solid var(--line);background:var(--bg-2)}
+.frame .tbl th:first-child,.frame .tbl td:first-child{padding-left:18px}
+.frame .tbl th:last-child,.frame .tbl td:last-child{padding-right:18px}
+.frame .tbl td{height:50px}
+.frame .scroll .tbl{min-width:760px}
+.sum{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line);margin-bottom:16px}
+.sum div{padding:16px 20px;border-left:1px solid var(--line)}
+.sum div:first-child{border-left:0}
+.sum dt{font-size:.72rem;color:var(--tx-3)}
+.sum dd{margin-top:6px;font:400 1.7rem/1 var(--m);letter-spacing:-.03em}
+@media (max-width:760px){.sum{grid-template-columns:1fr 1fr}.sum div:nth-child(3){border-left:0}.sum div:nth-child(n+3){border-top:1px solid var(--line)}}
+.chips{display:flex;gap:4px;margin-bottom:12px}
+.chips button{height:30px;padding:0 12px;border:1px solid var(--line);font:600 .72rem var(--f);color:var(--tx-3);transition:color .2s,border-color .2s}
+.chips button[aria-pressed="true"]{color:var(--tx);border-color:var(--gold)}
+.bar{height:2px;background:var(--line);margin-top:6px;position:relative}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:var(--gold)}
+.pill{display:inline-block;padding:1px 7px;border:1px solid var(--line-2);font:500 .66rem var(--m);color:var(--tx-2)}
+.trade{display:inline-flex;align-items:center;height:28px;padding:0 12px;border:1px solid rgba(217,165,72,.5);color:var(--gold-2);font:600 .72rem var(--f);text-decoration:none;transition:background-color .2s,color .2s}
+.trade:hover{background:var(--gold);color:#120d05}
+/* launches: the curve is the market, so its fill is the one bar on each row */
+.lt .acts{display:inline-flex;gap:4px}
+.lt .trade.b{border-color:rgba(127,207,154,.5);color:var(--up)} .lt .trade.b:hover{background:var(--up);color:#06120a}
+.lt .trade.s{border-color:rgba(236,133,116,.5);color:var(--dn)} .lt .trade.s:hover{background:var(--dn);color:#170805}
+.lt .trade.x{border-color:var(--line-2);color:var(--tx-2)} .lt .trade.x:hover{background:var(--tx);color:#0b0907}
+.cv{display:grid;grid-template-columns:120px auto;gap:10px;align-items:center;font:400 .74rem var(--m);color:var(--tx-2)}
+.cv .bar{margin-top:0;height:4px}
+.cv.done .bar i{background:var(--up)}
+.chips .live{margin-left:auto;align-self:center;font:400 .7rem var(--m);color:var(--tx-3)}
+.grad{margin-top:14px;padding:12px 14px;border:1px solid rgba(217,165,72,.3);background:var(--gold-d);font-size:.76rem;color:var(--tx-2)}
+.grad[hidden]{display:none}
+.safe{margin-top:12px;font-size:.72rem;line-height:1.55;color:var(--tx-3)}
+.details #signer a{color:var(--tx-2);text-underline-offset:3px;text-decoration-color:var(--line-2)}
+.grad a{color:var(--gold-2)}
+
+/* ---------- paper perps + testnet vault: a gold banner says what is not real before anything else ---------- */
+.pbanner{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 20px;border-bottom:1px solid rgba(217,165,72,.3);background:var(--gold-d);font-size:.78rem;color:var(--tx-2)}
+.page .pbanner{border:1px solid rgba(217,165,72,.3);margin-bottom:26px}
+.pbanner b{font:500 .7rem var(--m);letter-spacing:.06em;text-transform:uppercase;color:var(--gold-2);padding:2px 8px;border:1px solid rgba(217,165,72,.5)}
+.pbanner button{margin-left:auto;height:28px;padding:0 12px;border:1px solid var(--line-2);font:600 .7rem var(--f);color:var(--tx-2)}
+.pbanner button:hover{color:var(--tx);border-color:var(--tx-3)}
+.pdesk{height:calc(100dvh - var(--hh) - 45px)}
+.go.short{background:var(--dn);color:#170805}
+.go.short:hover{background:#f19a8b}
+.lev{width:100%;margin-top:12px;accent-color:var(--gold)}
+.tpsl{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tpsl label{display:grid;gap:6px;font-size:.72rem;color:var(--tx-3)}
+.tpsl input{width:100%;background:transparent;border:0;border-bottom:1px solid var(--line);outline:none;padding:4px 0;font:400 .9rem var(--m);color:var(--tx)}
+.tpsl input:focus{border-bottom-color:var(--gold)}
+.tbl .x{height:26px;padding:0 10px;border:1px solid var(--line-2);font:600 .68rem var(--f);color:var(--tx-2)}
+.tbl .x:hover{color:var(--tx);border-color:var(--tx-3)}
+.vbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px;font:400 .78rem var(--m);color:var(--tx-2)}
+.vbar .vsp{flex:1}
+.vbar .trade{margin-left:4px}
+.vgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:14px 0 30px}
+.vbox{padding:18px;display:flex;flex-direction:column;gap:12px}
+.vbox h2{font:400 1.45rem/1 var(--serif)}
+.vbox label{display:grid;gap:6px;font-size:.72rem;color:var(--tx-3)}
+.vbox input,.vbox select{width:100%;height:38px;padding:0 10px;background:var(--bg);border:1px solid var(--line);outline:none;font:400 .84rem var(--m);color:var(--tx);color-scheme:dark}
+.vbox input:focus,.vbox select:focus{border-color:var(--gold)}
+.vbox .go{margin-top:auto;height:44px}
+.vh{font:400 1.7rem/1 var(--serif);margin:8px 0 12px}
+.sum dd.sm{font-size:.95rem;letter-spacing:0;overflow-wrap:anywhere}
+.sum dd.sm a{color:var(--gold-2)}
+.vfoot{margin-top:18px;color:var(--tx-3);font-size:.76rem}
+@media (max-width:1100px){.vgrid{grid-template-columns:1fr 1fr}}
+@media (max-width:620px){.vgrid{grid-template-columns:1fr}.pbanner button{margin-left:0}}
+
+/* ---------- not live yet (perps, vault): the statue, and the plan, no fake numbers ---------- */
+.stage{position:relative;min-height:calc(100dvh - var(--hh));display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);overflow:hidden}
+.stage .still{position:absolute;inset:0;background:url(seq/d/0180.jpg) 72% 30%/cover no-repeat;opacity:.9}
+.stage .still::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,var(--bg) 18%,rgba(6,6,6,.72) 46%,rgba(6,6,6,.05) 75%),linear-gradient(0deg,var(--bg),transparent 30%)}
+.stage .copy{position:relative;padding:72px 0 72px max(24px,6vw);max-width:620px}
+.stage .soon{display:inline-block;padding:3px 9px;border:1px solid rgba(217,165,72,.5);font:500 .7rem var(--m);color:var(--gold-2)}
+.stage h1{margin-top:18px;font:400 clamp(3rem,6vw,5.2rem)/.92 var(--serif)}
+.stage .lede{margin-top:18px;color:var(--tx-2);font-size:1rem;max-width:46ch}
+.steps{list-style:none;margin-top:30px;border-top:1px solid var(--line)}
+.steps li{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:12px;align-items:center;padding:13px 0;border-bottom:1px solid var(--line)}
+.steps li em{font:400 1.15rem var(--serif);font-style:normal;color:var(--tx-3)}
+.steps li span{font:500 .66rem var(--m);color:var(--tx-3)}
+.steps li.done span{color:var(--up)} .steps li.now span{color:var(--gold)}
+.lnk{display:inline-flex;align-items:center;height:44px;margin-top:28px;padding:0 20px;border:1px solid var(--gold);color:var(--gold-2);font:700 .78rem var(--f);letter-spacing:.04em;text-decoration:none;transition:background-color .2s,color .2s}
+.lnk:hover{background:var(--gold);color:#120d05}
+.stage .small{margin-top:16px;font-size:.8rem;color:var(--tx-3);max-width:50ch}
+@media (max-width:860px){.stage{grid-template-columns:1fr}.stage .still{opacity:.45;background-position:60% 20%}.stage .copy{padding:48px 20px 56px}}
+
+.fine{padding:18px 24px 28px;border-top:1px solid var(--line);font-size:.72rem;color:var(--tx-3);display:grid;gap:5px}
+.fine code{font-family:var(--m);font-size:.68rem;overflow-wrap:anywhere}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header>
+  <div class="in">
+    <a class="mark" href="./" aria-label="Masque home"><svg viewBox="0 11 64 32" style="width:44px;height:22px" aria-hidden="true"><defs><linearGradient id="mqg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6dc96"/><stop offset=".5" stop-color="#d9a548"/><stop offset="1" stop-color="#9a6a22"/></linearGradient></defs> <path fill="url(#mqg)" fill-rule="evenodd" d="M1.5 15 C7 21 13 20.5 19 22 C25 23.5 28.5 25.5 32 25.5 C35.5 25.5 39 23.5 45 22 C51 20.5 57 21 62.5 15 C62.5 30 56 41 46 41 C40 41 36 37.5 32 33 C28 37.5 24 41 18 41 C8 41 1.5 30 1.5 15Z M10.5 29.5 C14.5 25 22 25 26.5 30 C22 33 15 33 10.5 29.5Z M37.5 30 C42 25 49.5 25 53.5 29.5 C49 33 42 33 37.5 30Z"/> <path fill="url(#mqg)" d="M32 13 L35 18.5 L32 24 L29 18.5Z"/> <path fill="none" stroke="#0a0908" stroke-width=".7" opacity=".5" d="M5 20.5 C9 23.5 14 23.8 19 25 C25 26.6 28.5 28.4 32 28.4 C35.5 28.4 39 26.6 45 25 C50 23.8 55 23.5 59 20.5"/></svg>MASQUE</a>
+    <nav class="tabs" aria-label="Terminal">
+      <a href="#perps" data-tab="perps">Perps <sup>paper</sup></a>
+      <a href="#swap" data-tab="swap">Swap</a>
+      <a href="#pools" data-tab="pools">Pools</a>
+      <a href="#launches" data-tab="launches">Launches</a>
+      <a href="#vault" data-tab="vault">Vault <sup>testnet</sup></a>
+    </nav>
+    <div class="hr">
+      <p class="chain" id="chain"><i></i><span id="block">Robinhood Chain</span></p>
+      <button class="wallet" id="connect" type="button">Connect wallet</button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <!-- PERPS: paper trading on live prices; nothing on chain, nothing at stake -->
+  <section class="pane" id="pane-perps" aria-label="Perps" hidden>
+    <p class="pbanner"><b>Paper trading</b><span>Live Robinhood Chain prices, a practice balance kept in this browser. No contract, no deposit, no real money.</span><button type="button" id="pp-reset">Reset balance</button></p>
+    <div class="desk pdesk">
+      <aside class="rail" aria-label="Perp markets">
+        <div class="cats"><button type="button" aria-pressed="true">Perp markets</button></div>
+        <div class="mlist" id="pp-list"></div>
+        <p class="railnote">Mark price is the deepest Uniswap pool, read every 5 seconds. Stocks also show their Chainlink price.</p>
+      </aside>
+      <section class="mkt" aria-label="Perp market">
+        <div class="mhead">
+          <div class="who"><div class="tkrow"><span class="glyph lg" id="pp-logo"></span><h1 id="pp-tk">TSLA</h1></div><p><span id="pp-name">Tesla</span><span class="kind">perp · paper</span></p></div>
+          <div class="big"><span class="px" id="pp-px">…</span><span class="ch m" id="pp-ch"></span></div>
+          <dl class="stats">
+            <div><dt id="pp-refL">Chainlink</dt><dd id="pp-ref">-</dd></div>
+            <div><dt>Max leverage</dt><dd id="pp-max">-</dd></div>
+            <div><dt>Equity</dt><dd id="pp-eq">-</dd></div>
+            <div><dt>Free balance</dt><dd id="pp-cash">-</dd></div>
+          </dl>
+        </div>
+        <div class="chartbar"><span class="src" id="pp-src">Last 6 hours of pool trades, then live</span></div>
+        <div class="chart"><canvas id="pp-cv" aria-label="Mark price" role="img"></canvas><p class="note" id="pp-note">Reading prices…</p></div>
+        <div class="tape">
+          <h2>Positions <span id="pp-upnl"></span></h2>
+          <div class="scroll"><table class="tbl"><thead><tr><th>Market</th><th>Side</th><th class="num">Size</th><th class="num">Entry</th><th class="num">Mark</th><th class="num">Liq.</th><th class="num">PnL</th><th>TP / SL</th><th></th></tr></thead><tbody id="pp-pos"><tr><td colspan="9" class="empty">No open positions.</td></tr></tbody></table></div>
+          <h2>History <span>closed positions, newest first</span></h2>
+          <div class="scroll"><table class="tbl"><thead><tr><th>Closed</th><th>Market</th><th>Side</th><th class="num">Entry</th><th class="num">Exit</th><th class="num">PnL</th><th>Reason</th></tr></thead><tbody id="pp-hist"><tr><td colspan="7" class="empty">Nothing closed yet.</td></tr></tbody></table></div>
+        </div>
+      </section>
+      <section class="ticket" aria-label="Perp ticket">
+        <div class="side" role="group" aria-label="Direction"><button class="buy" type="button" data-pside="long" aria-pressed="true">Long</button><button class="sell" type="button" data-pside="short" aria-pressed="false">Short</button></div>
+        <div class="box">
+          <label for="pp-amt"><span>Margin</span><button class="bal" id="pp-bal" type="button" title="Use the whole free balance"></button></label>
+          <div class="row"><input id="pp-amt" inputmode="decimal" placeholder="0.00" autocomplete="off"><div class="tok"><span>USD</span></div></div>
+          <div class="quick" id="pp-quick"><button type="button" data-pp="10">10%</button><button type="button" data-pp="25">25%</button><button type="button" data-pp="50">50%</button><button type="button" data-pp="100">Max</button></div>
+        </div>
+        <div class="box">
+          <div class="lbl"><span>Leverage</span><span class="m" id="pp-levv">5x</span></div>
+          <input class="lev" id="pp-lev" type="range" min="1" max="10" step="1" value="5" aria-label="Leverage">
+        </div>
+        <div class="box tpsl">
+          <label><span>Take profit</span><input id="pp-tp" inputmode="decimal" placeholder="price, optional" autocomplete="off"></label>
+          <label><span>Stop loss</span><input id="pp-sl" inputmode="decimal" placeholder="price, optional" autocomplete="off"></label>
+        </div>
+        <div class="details">
+          <div><span>Position size</span><span id="pp-size">-</span></div>
+          <div><span>Entry (mark now)</span><span id="pp-entry">-</span></div>
+          <div><span>Liquidation price</span><span id="pp-liq">-</span></div>
+          <div><span>Open fee</span><span id="pp-fee">-</span></div>
+        </div>
+        <button class="go" id="pp-go" type="button" disabled>Enter a margin</button>
+        <p class="msg" id="pp-msg" role="status"></p>
+        <p class="safe">Paper only: fills at the live mark price with a 0.06% fee each way, liquidation at 1% maintenance margin, no funding. It teaches the mechanics; it is not a promise of how a live market would fill.</p>
+      </section>
+    </div>
+  </section>
+
+  <!-- SWAP: the desk -->
+  <section class="pane" id="pane-swap" aria-label="Swap" hidden>
+    <div class="desk">
+      <aside class="rail" aria-label="Markets">
+        <div class="cats" role="group" aria-label="Market type">
+          <button type="button" data-cat="stock" aria-pressed="true">Stocks</button>
+          <button type="button" data-cat="crypto" aria-pressed="false">Crypto</button>
+          <button type="button" data-cat="pons" aria-pressed="false">Launches</button>
+          <button type="button" data-cat="added" aria-pressed="false" hidden>Added</button>
+        </div>
+        <div class="find">
+          <input id="find" type="search" placeholder="Search, or paste a token address" autocomplete="off" spellcheck="false" aria-label="Search markets or paste a token address">
+          <button id="load" type="button" hidden>Load this token</button>
+        </div>
+        <div class="mlist" id="list"></div>
+        <p class="railnote" id="railnote">Prices from the deepest Uniswap v3 pool of each token. Stocks also show their Chainlink price.</p>
+      </aside>
+
+      <section class="mkt" aria-label="Market">
+        <div class="mhead">
+          <div class="who"><div class="tkrow"><span class="glyph lg" id="m-logo"></span><h1 id="m-tk">TSLA</h1></div><p><span id="m-name">Tesla</span><span class="kind" id="m-kind">stock</span><a id="m-addr" href="#" target="_blank" rel="noopener"></a><a id="m-ds" href="#" target="_blank" rel="noopener" hidden>DexScreener ↗</a></p></div>
+          <div class="big"><span class="px" id="m-px">…</span><span class="ch m" id="m-ch"></span></div>
+          <dl class="stats">
+            <div><dt id="m-refL">Chainlink</dt><dd id="m-ref">-</dd></div>
+            <div><dt id="m-depthL">Pool depth</dt><dd id="m-depth">-</dd></div>
+            <div><dt>Volume</dt><dd id="m-vol">-</dd></div>
+            <div><dt>Trades</dt><dd id="m-n">-</dd></div>
+          </dl>
+        </div>
+        <div class="chartbar">
+          <div class="tf" role="group" aria-label="Time frame"><button type="button" data-tf="3600">1H</button><button type="button" data-tf="86400" aria-pressed="true">24H</button><button type="button" data-tf="604800">7D</button></div>
+          <span class="src" id="m-src"></span>
+        </div>
+        <div class="chart" id="chart"><canvas id="cv" aria-label="Price chart from on-chain swaps" role="img"></canvas><p class="note" id="cnote">Reading swaps…</p><div class="tip" id="tip"></div></div>
+        <div class="tape">
+          <h2>Trades <span>every swap in the pool, newest first</span></h2>
+          <div class="scroll"><table class="tbl"><thead><tr><th>Time</th><th>Side</th><th class="num">Amount</th><th class="num">Price</th><th class="num">Value</th><th>Wallet</th></tr></thead><tbody id="trades"><tr><td colspan="6" class="empty">Reading swaps…</td></tr></tbody></table></div>
+        </div>
+      </section>
+
+      <section class="ticket" id="ticket" aria-label="Trade ticket">
+        <div class="side" role="group" aria-label="Side"><button class="buy" type="button" data-side="buy" aria-pressed="true">Buy</button><button class="sell" type="button" data-side="sell" aria-pressed="false">Sell</button></div>
+        <div class="box">
+          <label for="amt"><span id="payL">You pay</span><button class="bal" id="balIn" type="button" title="Use full balance"></button></label>
+          <div class="row"><input id="amt" inputmode="decimal" placeholder="0.0" autocomplete="off"><div class="tok" id="payTok"></div></div>
+          <div class="quick" id="quick"></div>
+        </div>
+        <div class="box">
+          <div class="lbl"><span>You receive, at least</span><span class="m" id="balOut"></span></div>
+          <div class="row"><div class="out m" id="out">0.0</div><div class="tok" id="getTok"></div></div>
+        </div>
+        <div class="details">
+          <div><span>Route</span><span id="route">-</span></div>
+          <div><span>Price</span><span id="px">-</span></div>
+          <div><span>Expected</span><span id="exp">-</span></div>
+          <div><span>Price impact</span><span id="imp">-</span></div>
+          <div><span>Fees</span><span id="fees">-</span></div>
+          <div><span>Contract</span><span id="signer">-</span></div>
+          <div><span>Max slippage</span><span class="slip" id="slip"><button type="button" data-s="50" aria-pressed="true">0.5%</button><button type="button" data-s="100" aria-pressed="false">1%</button><button type="button" data-s="300" aria-pressed="false">3%</button><button type="button" data-s="1000" aria-pressed="false">10%</button></span></div>
+        </div>
+        <button class="go" id="go" type="button" disabled>Connect wallet</button>
+        <p class="msg" id="msg" role="status"></p>
+        <p class="warn" id="risk" hidden>Anyone can make a token with any name. Check this contract on the explorer before you buy; small pools move a lot.</p>
+        <p class="safe">Masque never asks for a seed phrase or private key and holds nothing. Each approval covers this trade's exact amount, never unlimited. Before you sign, check that your wallet shows the contract above.</p>
+        <p class="grad" id="grad" hidden></p>
+        <p class="public"><b>This trade is public.</b> It goes from your own wallet, straight to the Uniswap pool or the Pons curve. Private holding comes with the Masque vault, which is not live yet.</p>
+      </section>
+    </div>
+  </section>
+
+  <!-- POOLS -->
+  <section class="pane" id="pane-pools" aria-label="Pools" hidden>
+    <div class="page">
+      <div class="ptop"><h1>Pools</h1><p>Every Uniswap v3 pool of the markets on this terminal, read from Robinhood Chain when you open the tab. Depth tells you how far a trade moves the price.</p></div>
+      <dl class="sum"><div><dt>Pools with liquidity</dt><dd id="ps-n">-</dd></div><div><dt>Value in pools</dt><dd id="ps-v">-</dd></div><div><dt>Deepest</dt><dd id="ps-d">-</dd></div><div><dt>ETH price</dt><dd id="ps-e">-</dd></div></dl>
+      <div class="chips" role="group" aria-label="Filter"><button type="button" data-pf="all" aria-pressed="true">All</button><button type="button" data-pf="stock" aria-pressed="false">Stocks</button><button type="button" data-pf="crypto" aria-pressed="false">Crypto</button></div>
+      <div class="frame scroll"><table class="tbl"><thead><tr><th>Pair</th><th>Fee</th><th class="num">Token side</th><th class="num">Quote side</th><th class="num">Value</th><th>Pool</th><th></th></tr></thead><tbody id="pools"><tr><td colspan="7" class="empty">Reading pools from Robinhood Chain…</td></tr></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- LAUNCHES -->
+  <section class="pane" id="pane-launches" aria-label="Launches" hidden>
+    <div class="page">
+      <div class="ptop"><h1>Launches</h1><p>The newest coins launched on Pons, read from the factory and each coin's bonding curve. Buy and Sell trade the curve straight from your wallet. Listed here is not an endorsement; check every contract yourself.</p></div>
+      <dl class="sum"><div><dt>Launches read</dt><dd id="ls-n">-</dd></div><div><dt>On the curve</dt><dd id="ls-c">-</dd></div><div><dt>Closest to graduating</dt><dd id="ls-g">-</dd></div><div><dt>Newest</dt><dd id="ls-a">-</dd></div></dl>
+      <div class="chips" role="group" aria-label="Filter"><button type="button" data-lf="all" aria-pressed="true">All</button><button type="button" data-lf="curve" aria-pressed="false">On curve</button><button type="button" data-lf="grad" aria-pressed="false">Graduated</button><span class="live" id="ls-live"></span></div>
+      <div class="frame scroll"><table class="tbl lt"><thead><tr><th>Coin</th><th class="num">Price</th><th class="num">Market cap</th><th>Curve</th><th>Creator</th><th class="num">Age</th><th></th></tr></thead><tbody id="launches"><tr><td colspan="7" class="empty">Reading the Pons factory…</td></tr></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- VAULT: live on Robinhood Chain testnet only -->
+  <section class="pane" id="pane-vault" aria-label="Vault" hidden>
+    <div class="page">
+      <p class="pbanner"><b>Testnet preview</b><span>Runs on Robinhood Chain testnet (chain 46630) with test ETH and test tokens that are worth nothing. The mainnet vault opens only after an outside audit.</span></p>
+      <div class="ptop"><h1>Vault</h1><p>Keep ETH and stock tokens in named pockets. Only you can move or withdraw your balance, to any address you pick. Lock a pocket until a date to stop yourself selling early. The contract has no admin: nobody can pause it, change it or touch a balance. Every deposit and withdrawal is still public on chain.</p></div>
+      <dl class="sum"><div><dt>Vault contract</dt><dd id="v-addr" class="sm">-</dd></div><div><dt>Your pockets</dt><dd id="v-n">-</dd></div><div><dt>ETH in your pockets</dt><dd id="v-eth">-</dd></div><div><dt>Network</dt><dd id="v-net" class="sm">-</dd></div></dl>
+      <div class="vbar"><button class="wallet" id="v-connect" type="button">Connect wallet</button><span id="v-who"></span><span class="vsp"></span><a class="trade x" href="https://faucet.testnet.chain.robinhood.com" target="_blank" rel="noopener">Test ETH faucet ↗</a><span id="v-faucets"></span></div>
+      <p class="msg" id="v-msg" role="status"></p>
+      <div class="vgrid">
+        <form class="frame vbox" id="v-dep"><h2>Deposit</h2>
+          <label>Pocket<input name="pocket" list="v-labels" value="main" autocomplete="off" required></label>
+          <label>Asset<select name="asset" class="v-asset"></select></label>
+          <label>Amount<input name="amount" inputmode="decimal" placeholder="0.0" autocomplete="off" required></label>
+          <button class="go" type="submit">Deposit</button></form>
+        <form class="frame vbox" id="v-wd"><h2>Withdraw</h2>
+          <label>From pocket<select name="pocket" class="v-pockets"></select></label>
+          <label>Asset<select name="asset" class="v-asset"></select></label>
+          <label>Amount<input name="amount" inputmode="decimal" placeholder="0.0" autocomplete="off" required></label>
+          <label>To address<input name="to" placeholder="0x… (empty = your wallet)" autocomplete="off" spellcheck="false"></label>
+          <button class="go" type="submit">Withdraw</button></form>
+        <form class="frame vbox" id="v-mv"><h2>Move between pockets</h2>
+          <label>From<select name="pocket" class="v-pockets"></select></label>
+          <label>To pocket<input name="to" list="v-labels" placeholder="long-term" autocomplete="off" required></label>
+          <label>Asset<select name="asset" class="v-asset"></select></label>
+          <label>Amount<input name="amount" inputmode="decimal" placeholder="0.0" autocomplete="off" required></label>
+          <button class="go" type="submit">Move</button></form>
+        <form class="frame vbox" id="v-lk"><h2>Lock a pocket</h2>
+          <label>Pocket<select name="pocket" class="v-pockets"></select></label>
+          <label>Locked until<input name="until" type="datetime-local" required></label>
+          <p class="safe">A lock can be extended but never shortened or removed, also not by us. Pick a date you mean.</p>
+          <button class="go" type="submit">Lock</button></form>
+      </div>
+      <datalist id="v-labels"></datalist>
+      <h2 class="vh">Your pockets</h2>
+      <div class="frame scroll"><table class="tbl"><thead><tr><th>Pocket</th><th>Asset</th><th class="num">Balance</th><th>Locked until</th></tr></thead><tbody id="v-rows"><tr><td colspan="4" class="empty">Connect a wallet to see your pockets.</td></tr></tbody></table></div>
+      <h2 class="vh">Your activity</h2>
+      <div class="frame scroll"><table class="tbl"><thead><tr><th>Action</th><th>Pocket</th><th class="num">Amount</th><th>To</th><th>Tx</th></tr></thead><tbody id="v-act"><tr><td colspan="5" class="empty">Nothing yet.</td></tr></tbody></table></div>
+      <p class="small vfoot">Source and tests: MasqueVault.sol, 9 tests covering owner isolation, overdraw, locks, zero inputs and a reentering receiver. The contract address above links to the testnet explorer.</p>
+    </div>
+  </section>
+
+  <footer class="fine">
+    <span>On mainnet Masque runs no contract of its own and holds nothing; the vault preview is a testnet contract. Swaps go to the Uniswap v3 SwapRouter02 on Robinhood Chain <code>0xcaf681a66d020601342297493863e78c959e5cb2</code>, quotes from QuoterV2 <code>0x33e885ed0ec9bf04ecfb19341582aadcb4c8a9e7</code>. Pons coins trade on their own bonding curve, found through the Pons factory <code>0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e</code>.</span>
+    <span>Stock tokens may not be available where you live. Check before you trade. Prices move; a quote is not a promise. Not affiliated with Robinhood, Uniswap or Pons. Not financial advice.</span>
+  </footer>
+</main>
+
+<script type="module">
+import { createPublicClient, createWalletClient, custom, http, parseAbi, parseUnits, formatUnits, encodeFunctionData, keccak256, toHex, isAddress } from "https://cdn.jsdelivr.net/npm/viem@2.21.54/+esm";
+
+const $ = id => document.getElementById(id);
+const CHAIN = { id: 4663, name: "Robinhood Chain", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+  rpcUrls: { default: { http: ["https://rpc.mainnet.chain.robinhood.com"] } }, blockExplorers: { default: { name: "Blockscout", url: "https://robinhoodchain.blockscout.com" } } };
+const EXP = CHAIN.blockExplorers.default.url;
+const ROUTER = "0xcaf681a66d020601342297493863e78c959e5cb2", QUOTER = "0x33e885ed0ec9bf04ecfb19341582aadcb4c8a9e7", FACTORY = "0x1f7d7550b1b028f7571e69a784071f0205fd2efa";
+const WETH = "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73", USDG = "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168";
+const FEES = [100, 500, 3000, 10000];
+const SWAP = "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67";
+const FEEDS = {"TSLA": "0x4A1166a659A55625345e9515b32adECea5547C38", "NVDA": "0x379EC4f7C378F34a1B47E4F3cbeBCbAC3E8E9F15", "AAPL": "0x6B22A786bAa607d76728168703a39Ea9C99f2cD0", "GOOGL": "0xF6f373a037c30F0e5010d854385cA89185AE638b", "AMZN": "0xD5a1508ceD74c084eBf3cBe853e2C968fB2a651C", "META": "0x7C38C00C30BEe9378381E7B6135d7283356D71b1", "MSFT": "0x45C3C877C15E6BA2EBB19eA114Ea508d14C1Af2E", "AMD": "0x943A29E7ae51A4798823ca9eEd2ed533B2A22C72", "COIN": "0xA3a468A452940B7D6b69991207B508c609a98Ef2", "MSTR": "0x396118bdFB181e6240E74D243F266B061c0edc3D", "PLTR": "0x820ABedFF239034956B7A9d2F0a331f9F075eB4c", "SPY": "0x319724394D3A0e3669269846abE664Cd621f9f6A"};
+const STOCKS = [
+  ["TSLA", "Tesla", "0x322F0929c4625eD5bAd873c95208D54E1c003b2d"], ["NVDA", "NVIDIA", "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC"],
+  ["AAPL", "Apple", "0xaF3D76f1834A1d425780943C99Ea8A608f8a93f9"], ["GOOGL", "Alphabet", "0x2e0847E8910a9732eB3fb1bb4b70a580ADAD4FE3"],
+  ["AMZN", "Amazon", "0x12f190a9F9d7D37a250758b26824B97CE941bF54"], ["META", "Meta", "0xc0D6457C16Cc70d6790Dd43521C899C87ce02f35"],
+  ["MSFT", "Microsoft", "0xe93237C50D904957Cf27E7B1133b510C669c2e74"], ["AMD", "AMD", "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC"],
+  ["COIN", "Coinbase", "0x6330D8C3178a418788dF01a47479c0ce7CCF450b"], ["MSTR", "Strategy", "0xec262a75e413fAfD0dF80480274532C79D42da09"],
+  ["PLTR", "Palantir", "0x894E1EC2D74FFE5AEF8Dc8A9e84686acCB964F2A"], ["SPY", "S&P 500 ETF", "0x117cc2133c37B721F49dE2A7a74833232B3B4C0C"],
+].map(([tk, name, addr]) => ({ tk, name, addr, kind: "stock", feed: FEEDS[tk] }));
+// crypto with real liquidity on Robinhood Chain Uniswap v3 (checked 8 Nov 2026); names are read from each contract
+const CRYPTO = [
+  ["ETH", "Ether", WETH], ["cbBTC", "", "0xcec185eb182c47d1ba1efc84e6959e18cd620be4"], ["PONS", "", "0x39dbed3a2bd333467115de45665cc57f813c4571"],
+  ["VIRTUAL", "", "0xc6911796042b15d7fa4f6cde69e245ddcd3d9c31"], ["MEME", "", "0x385f4f8ae47651ce5f58f5265395a669f8281e18"],
+  ["ORBIO", "", "0xaa07a0e9209e16ac99708c3ec70159c6ef3128a3"], ["TIBBIR", "", "0x4db7374e966097be94c6680d49156d580f097bbf"],
+  ["PARE", "", "0x15d36b6a28d8327abc7afabf0f106ae2c9af5c4d"], ["ZZZ", "", "0x7dbf38976f6d3b9c529e7d9484a71898b409ee6a"],
+  ["DEGEN", "", "0x0830a9dd26a04e959657ab6788d45f5725590c32"], ["ROBINCAT", "", "0xded852de9fe9ba9b6f27f39e8e81cf851a5c79cc"],
+  ["SHROOM", "", "0xab093def657f15df31b33922a95e047add645b29"],
+].map(([tk, name, addr]) => ({ tk, name, addr, kind: "crypto" }));
+// logos for the listed markets live on this site (tools/fetch-logos.mjs), so nothing is hotlinked
+const LOGOS = {"TSLA":"TSLA.webp","NVDA":"NVDA.webp","AAPL":"AAPL.webp","GOOGL":"GOOGL.webp","AMZN":"AMZN.webp","META":"META.webp","MSFT":"MSFT.webp","AMD":"AMD.webp","COIN":"COIN.webp","MSTR":"MSTR.webp","PLTR":"PLTR.webp","SPY":"SPY.webp","ETH":"ETH.webp","cbBTC":"cbBTC.webp","PONS":"PONS.webp","VIRTUAL":"VIRTUAL.webp","MEME":"MEME.webp","ORBIO":"ORBIO.webp","TIBBIR":"TIBBIR.webp","PARE":"PARE.webp","ZZZ":"ZZZ.webp","DEGEN":"DEGEN.webp","ROBINCAT":"ROBINCAT.webp","SHROOM":"SHROOM.webp"};
+for (const m of [...STOCKS, ...CRYPTO]) if (LOGOS[m.tk]) m.logo = "assets/logos/" + LOGOS[m.tk];
+const ADDED = [], LAUNCHED_M = [];                  // pasted tokens; Pons coins from the factory's launch events
+const ALL = () => [...STOCKS, ...CRYPTO, ...LAUNCHED_M, ...ADDED];
+const LMAX = 40;                                    // launches read and kept fresh
+let LDONE = false, LLAST = 0n, LBUSY = null, LF = "all";
+
+const ERC20 = parseAbi(["function decimals() view returns (uint8)", "function symbol() view returns (string)", "function name() view returns (string)", "function totalSupply() view returns (uint256)", "function balanceOf(address) view returns (uint256)", "function allowance(address,address) view returns (uint256)", "function approve(address,uint256) returns (bool)"]);
+// Pons v2: the factory maps a coin to its bonding curve; until graduation the curve is the only market
+const PONS = "0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e", LAUNCHED = "0x8d4aad4953d0ca700d468f3753aa14432d1b35b43ec6409f051fb6aa43a89607";
+const C_BUY = "0xec36bf571f136799e8dc0b0b8bea4b04d8bd3d43de838aab0d5fc21d4cbfc455", C_SELL = "0x8113d738abdcb6b38357e9d53a54a7157861a09031b453651f0fe7fe151f59df";
+const NO = "0x0000000000000000000000000000000000000000";
+const TABI = parseAbi(["struct Socials { string twitter; string telegram; string discord; string website; string farcaster; }", "function getTokenInfo() view returns (address tokenDeployer, string tokenLogo, string tokenDescription, Socials tokenSocials)"]);
+// a Pons coin's logo is whatever its creator typed: only http(s) and ipfs links become an image
+// ipfs.io and dweb.link rate-limit image loads (429), Filebase answered every logo in under a second (checked 8 Nov)
+const IPFS = "https://ipfs.filebase.io/ipfs/", IPFS_B = "https://gateway.pinata.cloud/ipfs/";
+function logoUrl(s) {
+  s = String(s || "").trim();
+  if (/^ipfs:\/\//i.test(s)) s = IPFS + s.replace(/^ipfs:\/\/(ipfs\/)?/i, "");
+  s = s.replace(/^https:\/\/(ipfs\.io|dweb\.link|cloudflare-ipfs\.com)\/ipfs\//i, IPFS);
+  return /^https?:\/\/[^\s"'<>]+$/i.test(s) ? s : "";
+}
+const logoBackup = u => u.startsWith(IPFS) ? IPFS_B + u.slice(IPFS.length) : "";
+const logoOf = a => read(c => c.readContract({ address: a, abi: TABI, functionName: "getTokenInfo" })).then(r => logoUrl(r[1])).catch(() => "");
+const PFABI = parseAbi(["function getLaunchedToken(address token) view returns ((address token, address curve, address deployer, address creatorFeeRecipient, address pairToken, uint256 graduationThreshold, uint256 initialLiquidity, uint24 poolFee, int24 tickSpacing, uint16 creatorTaxBps, bool buybackEnabled, uint8 phase, uint256 sweptQuote, uint256 sweptTokens, bool exists))"]);
+const CABI = parseAbi(["function buy(uint256 quoteIn, uint256 minTokensOut, address recipient) payable returns (uint256 tokensOut)", "function sell(uint256 tokensIn, uint256 minQuoteOut, address recipient) returns (uint256 quoteOut)",
+  "function getReserves() view returns (uint256 quoteReserve, uint256 tokenReserve)", "function realQuoteReserve() view returns (uint256)", "function graduationThreshold() view returns (uint256)",
+  "function feeBps() view returns (uint256)", "function creatorTaxBps() view returns (uint256)", "function currentSnipeTaxBps(address recipient) view returns (uint256)", "function graduated() view returns (bool)"]);
+const QABI = parseAbi(["function quoteExactInputSingle((address tokenIn,address tokenOut,uint256 amountIn,uint24 fee,uint160 sqrtPriceLimitX96) params) returns (uint256 amountOut,uint160 sqrtPriceX96After,uint32 initializedTicksCrossed,uint256 gasEstimate)"]);
+const FABI = parseAbi(["function getPool(address,address,uint24) view returns (address)"]);
+const PABI = parseAbi(["function slot0() view returns (uint160 sqrtPriceX96,int24 tick,uint16,uint16,uint16,uint8,bool)"]);
+const RABI = parseAbi(["function exactInputSingle((address tokenIn,address tokenOut,uint24 fee,address recipient,uint256 amountIn,uint256 amountOutMinimum,uint160 sqrtPriceLimitX96) params) payable returns (uint256 amountOut)", "function unwrapWETH9(uint256 amountMinimum,address recipient) payable", "function multicall(uint256 deadline,bytes[] data) payable returns (bytes[])"]);
+const FEED = parseAbi(["function latestRoundData() view returns (uint80,int256,uint256,uint256,uint80)", "function decimals() view returns (uint8)"]);
+const ADDRESS_THIS = "0x0000000000000000000000000000000000000002";   // SwapRouter02: keep the output in the router, then unwrap
+
+// reads go through this site's /rpc proxy (the official RPC is blocked on some networks), public mirror as a fallback
+const urls = [...(location.protocol.startsWith("http") ? [new URL("/rpc", location.href).href] : []), "https://rpc.mainnet.chain.robinhood.com", "https://robinhood-rpc.publicnode.com"];
+const pubs = urls.map(u => createPublicClient({ chain: CHAIN, transport: http(u, { batch: { batchSize: 40 }, retryCount: 1, timeout: 15000 }) }));
+let pi = 0;                                         // log queries only work on the official RPC: pubs[0] is that, or the proxy to it
+async function read(fn) {
+  for (let k = pi; k < pubs.length; k++) { try { const r = await fn(pubs[k]); pi = k; return r; } catch (e) { if (k === pubs.length - 1) throw e; } }
+}
+
+/* ---------- formatting ---------- */
+const lower = a => a.toLowerCase();
+const short = a => a.slice(0, 6) + "…" + a.slice(-4);
+const fmt = (v, d = 4) => Number(v).toLocaleString("en-US", { maximumFractionDigits: d });
+const SUB = "₀₁₂₃₄₅₆₇₈₉";
+function price(v) {                      // $1,234.56 / $0.4821 / $0.0₅3412 for tiny meme prices
+  if (!isFinite(v) || v <= 0) return "-";
+  if (v >= 1) return "$" + v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: v >= 1000 ? 2 : 4 });
+  const z = Math.ceil(-Math.log10(v)) - 1;        // zeros after the decimal point
+  if (z >= 4) return "$0.0" + String(z).split("").map(d => SUB[d]).join("") + Math.round(v * 10 ** (z + 4));
+  return "$" + v.toPrecision(4);
+}
+const usdS = v => !isFinite(v) ? "-" : v >= 1e6 ? "$" + (v / 1e6).toFixed(2) + "M" : v >= 1e3 ? "$" + (v / 1e3).toFixed(1) + "k" : "$" + v.toFixed(v < 10 ? 2 : 0);
+const amt = v => v >= 1e6 ? (v / 1e6).toFixed(2) + "M" : v >= 1e3 ? (v / 1e3).toFixed(1) + "k" : v >= 1 ? v.toFixed(2) : v.toPrecision(3);
+const ago = s => s < 60 ? Math.round(s) + "s" : s < 3600 ? Math.round(s / 60) + "m" : s < 86400 ? (s / 3600).toFixed(1) + "h" : (s / 86400).toFixed(1) + "d";
+const esc = t => String(t).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+const pct = x => (x > 0 ? "+" : "") + x.toFixed(2) + "%";
+
+/* ---------- chain helpers ---------- */
+const DEC = { [lower(WETH)]: 18, [lower(USDG)]: 6 };
+async function decimals(a) { const k = lower(a); if (DEC[k] == null) DEC[k] = Number(await read(c => c.readContract({ address: a, abi: ERC20, functionName: "decimals" }))); return DEC[k]; }
+let ETHUSD = 0;
+const POOL = {};
+/* deepest pool of a token against USDG or WETH, measured by the quote side it holds */
+function poolOf(m) {
+  const k = lower(m.addr);
+  if (POOL[k]) return POOL[k];
+  return POOL[k] = (async () => {
+    const quotes = k === lower(WETH) ? [USDG] : [USDG, WETH];
+    const pairs = quotes.flatMap(q => FEES.map(f => [q, f]));
+    const addrs = await read(c => Promise.all(pairs.map(([q, f]) => c.readContract({ address: FACTORY, abi: FABI, functionName: "getPool", args: [m.addr, q, f] }))));
+    const live = pairs.map((p, i) => ({ q: p[0], fee: p[1], pool: addrs[i] })).filter(p => !/^0x0+$/.test(p.pool));
+    if (!live.length) return null;
+    const bals = await read(c => Promise.all(live.map(p => c.readContract({ address: p.q, abi: ERC20, functionName: "balanceOf", args: [p.pool] }))));
+    if (k !== lower(WETH) && !ETHUSD) await ethPrice();
+    live.forEach((p, i) => { p.qBal = Number(formatUnits(bals[i], p.q === USDG ? 6 : 18)); p.qUsd = p.q === USDG ? 1 : ETHUSD; p.depth = p.qBal * p.qUsd * 2; });
+    live.sort((a, b) => b.depth - a.depth);
+    return { ...live[0], all: live };
+  })().catch(e => { delete POOL[k]; throw e; });
+}
+async function spot(m, p) {                       // pool price of token m in USD, from slot0
+  const s = await read(c => c.readContract({ address: p.pool, abi: PABI, functionName: "slot0" }));
+  const [dX, dQ] = await Promise.all([decimals(m.addr), decimals(p.q)]);
+  const sq = Number(s[0]) / 2 ** 96, raw = sq * sq, x0 = lower(m.addr) < lower(p.q);
+  return (x0 ? raw : 1 / raw) * 10 ** (dX - dQ) * (p.q === USDG ? 1 : ETHUSD);
+}
+let ethP;
+function ethPrice() { return ethP ||= (async () => { const m = CRYPTO[0], p = await poolOf(m); ETHUSD = await spot(m, p); p.qUsd = 1; return ETHUSD; })(); }
+async function feedPrice(m) {
+  if (!m.feed) return null;
+  try { const [r, d] = await read(c => Promise.all([c.readContract({ address: m.feed, abi: FEED, functionName: "latestRoundData" }), c.readContract({ address: m.feed, abi: FEED, functionName: "decimals" })])); return Number(r[1]) / 10 ** d; } catch { return null; }
+}
+async function best(tokenIn, tokenOut, amountIn) {
+  const pools = await read(c => Promise.all(FEES.map(f => c.readContract({ address: FACTORY, abi: FABI, functionName: "getPool", args: [tokenIn, tokenOut, f] }))));
+  const live = FEES.filter((f, i) => !/^0x0+$/.test(pools[i]));
+  const qs = await Promise.all(live.map(fee => read(c => c.simulateContract({ address: QUOTER, abi: QABI, functionName: "quoteExactInputSingle", args: [{ tokenIn, tokenOut, amountIn, fee, sqrtPriceLimitX96: 0n }] })).then(r => ({ fee, out: r.result[0] })).catch(() => null)));
+  return qs.filter(Boolean).sort((a, b) => (b.out > a.out ? 1 : -1))[0] || null;
+}
+/* Pons curve: virtual reserves Q (ETH) and T (coin), both 18 decimals. Checked against simulated buys and real
+   CurveSell events: buy out = T*net/(Q+net) with net = in minus fee, creator tax and snipe tax; sell pays
+   Q*t/(T+t) minus fee and creator tax. */
+const CURVE = {};
+async function curveOf(m, fresh) {
+  const k = lower(m.addr);
+  if (!fresh && CURVE[k]) return CURVE[k];
+  if (!m.curve) {
+    const lt = await read(c => c.readContract({ address: PONS, abi: PFABI, functionName: "getLaunchedToken", args: [m.addr] }));
+    if (!lt.exists) return null;
+    Object.assign(m, { curve: lt.curve, pair: lt.pairToken, creator: lt.deployer });
+  }
+  const r = (fn, args) => ({ address: m.curve, abi: CABI, functionName: fn, args });
+  const [res, real, th, fee, tax, snipe, grad, sup] = await read(c => Promise.all([
+    c.readContract(r("getReserves")), c.readContract(r("realQuoteReserve")), c.readContract(r("graduationThreshold")), c.readContract(r("feeBps")),
+    c.readContract(r("creatorTaxBps")), c.readContract(r("currentSnipeTaxBps", [S.account || NO])), c.readContract(r("graduated")),
+    m.sup ? m.sup : c.readContract({ address: m.addr, abi: ERC20, functionName: "totalSupply" })]));
+  m.sup = sup;
+  return CURVE[k] = { Q: res[0], T: res[1], real, th, fee, tax, snipe, grad, sup, eth: lower(m.pair || NO) === NO };
+}
+const curvePx = cv => cv && cv.eth && cv.T ? Number(cv.Q) / Number(cv.T) * ETHUSD : 0;       // USD per coin
+const curveFill = cv => cv && cv.th ? Math.min(1, Number(cv.real) / Number(cv.th)) : 0;
+const onCurve = () => S.m.kind === "pons" && !!S.cv && !S.cv.grad && S.cv.eth;
+
+/* DexScreener: 24h change, liquidity, market cap and logos for every pair it indexes. Pons coins only appear there
+   after they leave the curve, so the curve stays the source for those; on-chain pool prices stay the live price. */
+const DS = {};
+let DSAT = 0;
+async function dexscreener(list, fresh) {
+  if (fresh) list.forEach(m => delete DS[lower(m.addr)]);
+  const want = [...new Set(list.map(m => m.addr).filter(a => !(lower(a) in DS)))];
+  await Promise.all(Array.from({ length: Math.ceil(want.length / 30) }, (_, i) => want.slice(i * 30, i * 30 + 30)).map(async chunk => {
+    chunk.forEach(a => DS[lower(a)] = null);
+    try {
+      const r = await fetch(`https://api.dexscreener.com/tokens/v1/robinhood/${chunk.join(",")}`, { signal: AbortSignal.timeout(8000) }).then(r => r.ok ? r.json() : Promise.reject());
+      for (const p of Array.isArray(r) ? r : []) {          // deepest pair where the token is the base side
+        const k = lower(p.baseToken?.address || "");
+        if (k in DS && (!DS[k] || (p.liquidity?.usd || 0) > (DS[k].liquidity?.usd || 0))) DS[k] = p;
+      }
+    } catch { chunk.forEach(a => delete DS[lower(a)]); }
+  }));
+  for (const m of list) { const d = DS[lower(m.addr)]; if (!m.logo && d?.info?.imageUrl) m.logo = logoUrl(d.info.imageUrl); }
+  DSAT = Date.now();
+}
+const dsOf = m => DS[lower(m.addr)] || null;
+const dsCap = d => d ? d.marketCap || d.fdv || 0 : 0;
+
+let SPB = 0, HEAD = 0n;                            // seconds per block, measured once over the last 100k blocks
+async function clock() {
+  HEAD = await read(c => c.getBlockNumber());
+  if (!SPB) { const [a, b] = await read(c => Promise.all([c.getBlock({ blockNumber: HEAD }), c.getBlock({ blockNumber: HEAD - 100000n })])); SPB = Number(a.timestamp - b.timestamp) / 100000 || .25; }
+}
+
+/* ---------- state ---------- */
+const S = { cat: "stock", m: STOCKS[0], side: "buy", q: "ETH", slip: 50, tf: 86400, account: null, wallet: null, quote: null, seq: 0, chartSeq: 0, row: {}, cv: null };
+const NOTES = { stock: "Prices from the deepest Uniswap v3 pool of each token. Stocks also show their Chainlink price.", crypto: "Prices from the deepest Uniswap v3 pool of each token.",
+  pons: "New Pons coins, newest first. Price from each coin's bonding curve; the percent is how full the curve is before it graduates.", added: "Tokens you loaded by address." };
+
+/* ---------- rail ---------- */
+function glyph(tk) { return tk.length > 4 ? tk.slice(0, 4) : tk; }
+// the ticker letters sit under the logo, so a logo that fails to load falls back to them
+const face = (m, cls = "") => `<span class="glyph ${cls}">${esc(glyph(m.tk))}${m.logo ? `<img src="${esc(m.logo)}" data-b="${esc(logoBackup(m.logo))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="if(this.dataset.b){this.src=this.dataset.b;this.dataset.b=''}else this.remove()">` : ""}</span>`;
+function renderRail() {
+  const f = $("find").value.trim().toLowerCase(), isAddr = /^0x[0-9a-f]{40}$/.test(f);
+  $("load").hidden = !isAddr || ALL().some(m => lower(m.addr) === f);
+  const list = (f && !isAddr ? ALL() : ALL().filter(m => m.kind === S.cat))
+    .filter(m => !f || isAddr ? (!isAddr || lower(m.addr) === f) : (m.tk.toLowerCase().includes(f) || (m.name || "").toLowerCase().includes(f)));
+  $("list").innerHTML = list.length ? "" : `<p class="empty">${isAddr ? "Not on the list yet. Load it to trade." : S.cat === "pons" && !f && !LDONE ? "Reading Pons launches…" : "No market matches."}</p>`;
+  $("railnote").textContent = NOTES[S.cat] || "";
+  for (const m of list) {
+    const b = document.createElement("button"); b.className = "mrow"; b.type = "button"; b.setAttribute("aria-pressed", m === S.m);
+    const r = S.row[lower(m.addr)] || {}, d = dsOf(m), ch = d?.priceChange?.h24;
+    const px = r.p || (d ? +d.priceUsd : 0);
+    const sub = m.kind === "crypto" && ch != null ? [pct(ch) + " 24h", ch >= 0 ? "up" : "dn"] : [r.sub || "", r.cls || ""];
+    b.innerHTML = `${face(m)}<span><b>${esc(m.tk)}</b><small>${esc(m.name || d?.baseToken?.name || "…")}</small></span><span class="r"><span>${px ? price(px) : r.sub ? "-" : "…"}</span><small class="${sub[1]}">${sub[0]}</small></span>`;
+    b.onclick = () => select(m);
+    $("list").append(b);
+  }
+  document.querySelector('[data-cat="added"]').hidden = !ADDED.length;
+}
+async function loadRow(m) {
+  const k = lower(m.addr);
+  try {
+    if (!m.name) m.name = await read(c => c.readContract({ address: m.addr, abi: ERC20, functionName: "name" })).catch(() => "");
+    if (m.kind === "pons") {
+      const cv = await curveOf(m);
+      if (cv && !cv.grad) { if (!ETHUSD) await ethPrice(); S.row[k] = cv.eth ? { p: curvePx(cv), sub: "curve " + Math.round(curveFill(cv) * 100) + "%" } : { p: 0, sub: "not an ETH pair" }; return; }
+    }
+    const p = await poolOf(m);
+    if (!p) { S.row[k] = { p: 0, sub: m.kind === "pons" ? "graduated" : "no pool" }; return; }
+    const px = await spot(m, p), ref = await feedPrice(m);
+    const row = { p: px, sub: "depth " + usdS(p.depth) };
+    if (ref) { const g = (px / ref - 1) * 100; row.ref = ref; row.sub = "gap " + pct(g); row.cls = g >= 0 ? "up" : "dn"; }
+    S.row[k] = row;
+  } catch { S.row[k] = { p: 0, sub: "retry" }; }
+}
+async function loadRows(list) {
+  const q = [...list]; const work = async () => { while (q.length) { const m = q.shift(); await loadRow(m); renderRail(); if (m === S.m) header(); } };
+  await Promise.all([work(), work(), work()]);
+}
+
+/* ---------- market header ---------- */
+function header() {
+  const m = S.m, r = S.row[lower(m.addr)] || {};
+  $("m-tk").textContent = m.tk; $("m-name").textContent = m.name || "";
+  if ($("m-logo").dataset.a !== m.addr + (m.logo || "")) { $("m-logo").outerHTML = face(m, "lg").replace('class="glyph lg"', `class="glyph lg" id="m-logo" data-a="${esc(m.addr + (m.logo || ""))}"`); } $("m-kind").textContent = m.kind === "pons" ? (onCurve() ? "pons curve" : "pons") : m.kind;
+  $("m-addr").textContent = short(m.addr); $("m-addr").href = `${EXP}/token/${m.addr}`;
+  $("m-px").textContent = r.p ? price(r.p) : "…";
+  $("risk").hidden = m.kind === "stock" || lower(m.addr) === lower(WETH);
+  const dd = dsOf(m); $("m-ds").hidden = !dd; if (dd) $("m-ds").href = dd.url;
+  if (onCurve()) {
+    const cv = S.cv, e = v => fmt(formatUnits(v, 18), 3);
+    $("m-refL").textContent = "Market cap"; $("m-ref").textContent = usdS(curvePx(cv) * Number(formatUnits(cv.sup, 18)));
+    $("m-depthL").textContent = "Curve"; $("m-depth").textContent = `${e(cv.real)} / ${e(cv.th)} ETH`;
+    return;
+  }
+  const d = dsOf(m);
+  $("m-refL").textContent = m.feed ? "Chainlink" : dsCap(d) ? "Market cap" : "Pool fee"; $("m-depthL").textContent = "Pool depth";
+  $("m-ref").innerHTML = m.feed ? (r.ref ? price(r.ref) + ` <span class="${r.cls}">${r.sub.replace("gap ", "")}</span>` : "-") : dsCap(d) ? usdS(dsCap(d)) : (POOLX ? (POOLX.fee / 10000).toFixed(2) + "%" : "-");
+  if (!r.p && d) $("m-px").textContent = price(+d.priceUsd);
+  $("m-depth").textContent = POOLX ? usdS(POOLX.depth) : "-";
+}
+/* a graduated Pons coin trades on its Uniswap v4 pool, which this desk does not route yet: say so and link out */
+function gradNote() {
+  const m = S.m, n = $("grad");
+  const stuck = m.kind === "pons" && !onCurve() && !POOLX && S.cv;
+  n.hidden = !stuck;
+  if (stuck) n.innerHTML = S.cv.grad ? `${esc(m.tk)} has graduated off its Pons curve to a Uniswap v4 pool. Trade it on <a href="https://ponsfamily.com/launchpad/${m.addr}" target="_blank" rel="noopener">Pons</a> for now.`
+    : `${esc(m.tk)} is paired with a token other than ETH. Trade it on <a href="https://ponsfamily.com/launchpad/${m.addr}" target="_blank" rel="noopener">Pons</a>.`;
+  return stuck;
+}
+let POOLX = null;
+async function select(m) {
+  S.m = m; S.quote = null; POOLX = null; S.cv = m.kind === "pons" ? CURVE[lower(m.addr)] || null : null;
+  if (m.kind !== S.cat && !$("find").value) { S.cat = m.kind; cats(); }
+  if (lower(m.addr) === lower(WETH)) S.q = "USDG";
+  // a curve coin can move between the quote and the block, so it starts at 3% instead of 0.5%
+  if (m.kind === "pons" && S.slip < 300) { S.slip = 300; document.querySelectorAll("[data-s]").forEach(x => x.setAttribute("aria-pressed", x.dataset.s === "300")); }
+  renderRail(); header(); tokens(); requote(); gradNote();
+  history.replaceState(null, "", "#swap:" + m.addr);
+  if (m.kind === "pons") { try { if (!ETHUSD) await ethPrice(); S.cv = await curveOf(m, true); } catch { S.cv = null; } }
+  if (!onCurve()) { try { POOLX = await poolOf(m); } catch { POOLX = null; } }
+  if (S.m !== m) return;
+  if (!(lower(m.addr) in DS)) await dexscreener([m]);
+  if (!S.row[lower(m.addr)] || m.kind === "pons") { await loadRow(m); renderRail(); }
+  header(); tokens(); requote(); gradNote(); chart();
+}
+function cats() { document.querySelectorAll("[data-cat]").forEach(b => b.setAttribute("aria-pressed", b.dataset.cat === S.cat)); }
+
+/* ---------- chart + tape, from the pool's Swap events ---------- */
+const word = (d, i) => BigInt("0x" + d.slice(2 + i * 64, 2 + (i + 1) * 64));
+const int = v => v >= 2n ** 255n ? v - 2n ** 256n : v;
+async function swaps(address, topics, secs) {
+  await clock();
+  let span = BigInt(Math.ceil(secs / SPB)), cut = false;
+  for (let i = 0; i < 7; i++) {
+    try {
+      const logs = await pubs[0].request({ method: "eth_getLogs", params: [{ fromBlock: "0x" + (HEAD - span).toString(16), toBlock: "0x" + HEAD.toString(16), address, topics }] });
+      return { logs, secs: Number(span) * SPB, cut };
+    } catch (e) { span /= 2n; cut = true; }
+  }
+  return { logs: [], secs: Number(span) * SPB, cut };
+}
+let PTS = [], VOL = [], TF0 = 0;
+async function chart() {
+  const m = S.m, p = POOLX, seq = ++S.chartSeq;
+  $("cnote").textContent = "Reading swaps…"; $("trades").innerHTML = `<tr><td colspan="6" class="empty">Reading swaps…</td></tr>`;
+  const curve = onCurve() && S.cv;
+  if (!p && !curve) { $("cnote").textContent = m.kind === "pons" ? "No market this desk can read for this coin." : "This token has no Uniswap v3 pool against ETH or USDG."; PTS = []; draw(); $("trades").innerHTML = `<tr><td colspan="6" class="empty">No pool, no trades.</td></tr>`; return; }
+  const now = Date.now() / 1000;
+  let rows, start = null, src;
+  if (curve) {
+    const { logs, secs, cut } = await swaps(m.curve, [[C_BUY, C_SELL]], S.tf).catch(() => ({ logs: [], secs: S.tf, cut: false }));
+    if (seq !== S.chartSeq) return;
+    // walk back from today's reserves: a buy added its net ETH and took coins out, a sell did the reverse
+    let Q = Number(curve.Q) / 1e18, T = Number(curve.T) / 1e18;
+    rows = [];
+    for (let i = logs.length - 1; i >= 0; i--) {
+      const l = logs[i], buy = l.topics[0] === C_BUY, w = j => Number(word(l.data, j)) / 1e18;
+      const [a, b, fee, tax] = [w(0), w(1), w(2), w(3)];          // buy: quoteIn, tokensOut; sell: tokensIn, quoteOut
+      rows.unshift({ t: now - Number(HEAD - BigInt(l.blockNumber)) * SPB, px: Q / T * ETHUSD, buy, size: buy ? b : a, usd: (buy ? a : b) * ETHUSD, tx: l.transactionHash, who: "0x" + l.topics[2].slice(26) });
+      if (buy) { Q -= a - fee - tax; T += b; } else { Q += b + fee + tax; T -= a; }
+    }
+    start = Q / T * ETHUSD; TF0 = now - secs;
+    src = `${m.tk}/ETH Pons bonding curve${cut ? `, last ${ago(secs)} (busy curve)` : ""}`;
+  } else {
+    const [dX, dQ] = await Promise.all([decimals(m.addr), decimals(p.q)]);
+    const { logs, secs, cut } = await swaps(p.pool, [SWAP], S.tf).catch(() => ({ logs: [], secs: S.tf, cut: false }));
+    if (seq !== S.chartSeq) return;
+    const x0 = lower(m.addr) < lower(p.q), qUsd = p.q === USDG ? 1 : ETHUSD;
+    rows = logs.map(l => {
+      const a0 = int(word(l.data, 0)), a1 = int(word(l.data, 1)), sq = Number(word(l.data, 2)) / 2 ** 96, raw = sq * sq;
+      const ax = x0 ? a0 : a1, aq = x0 ? a1 : a0;
+      const px = (x0 ? raw : 1 / raw) * 10 ** (dX - dQ) * qUsd;
+      const t = now - Number(HEAD - BigInt(l.blockNumber)) * SPB;
+      return { t, px, buy: ax < 0n, size: Math.abs(Number(ax)) / 10 ** dX, usd: Math.abs(Number(aq)) / 10 ** dQ * qUsd, tx: l.transactionHash, who: "0x" + l.topics[2].slice(26) };
+    });
+    TF0 = now - secs;
+    src = `${m.tk}/${p.q === USDG ? "USDG" : "ETH"} ${(p.fee / 10000).toFixed(2)}% pool${cut ? `, last ${ago(secs)} (busy pool)` : ""}`;
+  }
+  const secs = now - TF0;
+  const cur = S.row[lower(m.addr)]?.p || rows.at(-1)?.px || 0;
+  PTS = [{ t: TF0, px: start ?? rows[0]?.px ?? cur }, ...rows.map(r => ({ t: r.t, px: r.px })), { t: now, px: cur }];
+  const NB = 64; VOL = Array.from({ length: NB }, () => ({ b: 0, s: 0 }));
+  for (const r of rows) { const i = Math.min(NB - 1, Math.max(0, Math.floor((r.t - TF0) / secs * NB))); VOL[i][r.buy ? "b" : "s"] += r.usd; }
+  const vol = rows.reduce((t, r) => t + r.usd, 0), first = PTS[0].px, ch = first ? (cur / first - 1) * 100 : 0;
+  $("m-vol").textContent = usdS(vol); $("m-n").textContent = rows.length.toLocaleString("en-US");
+  $("m-ch").textContent = rows.length ? pct(ch) : ""; $("m-ch").className = "ch m " + (ch >= 0 ? "up" : "dn");
+  $("m-src").textContent = src;
+  $("cnote").textContent = rows.length ? "" : `No trades in the last ${ago(secs)}. The line is the current ${curve ? "curve" : "pool"} price.`;
+  draw();
+  const tape = rows.slice(-40).reverse();
+  $("trades").innerHTML = tape.length ? tape.map(r => `<tr><td class="m"><a href="${EXP}/tx/${r.tx}" target="_blank" rel="noopener">${ago(now - r.t)} ago</a></td><td class="${r.buy ? "up" : "dn"}"><b>${r.buy ? "Buy" : "Sell"}</b></td><td class="num">${amt(r.size)} ${esc(m.tk)}</td><td class="num">${price(r.px)}</td><td class="num">${usdS(r.usd)}</td><td><a class="addr" href="${EXP}/address/${r.who}" target="_blank" rel="noopener">${short(r.who)}</a></td></tr>`).join("")
+    : `<tr><td colspan="6" class="empty">No swaps in this window.</td></tr>`;
+}
+const cv = $("cv"), ctx = cv.getContext("2d");
+let HOV = null;
+function draw() {
+  const dpr = Math.min(2, devicePixelRatio || 1), W = cv.clientWidth, H = cv.clientHeight;
+  cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+  if (PTS.length < 2) return;
+  const padR = 76, padT = 44, volH = H * .16, plotB = H - 26 - volH - 8, x0 = 0, x1 = W - padR;
+  const t0 = PTS[0].t, t1 = PTS.at(-1).t;
+  let lo = Math.min(...PTS.map(p => p.px)), hi = Math.max(...PTS.map(p => p.px));
+  if (hi - lo < hi * .002) { lo *= .998; hi *= 1.002; }
+  const padv = (hi - lo) * .12; lo -= padv; hi += padv;
+  const X = t => x0 + (t - t0) / (t1 - t0 || 1) * (x1 - x0), Y = v => padT + (1 - (v - lo) / (hi - lo)) * (plotB - padT);
+  // grid + right axis
+  ctx.font = "400 10.5px 'Geist Mono', monospace"; ctx.textBaseline = "middle";
+  for (let i = 0; i <= 4; i++) {
+    const v = lo + (hi - lo) * i / 4, y = Y(v);
+    ctx.strokeStyle = "rgba(242,237,229,.05)"; ctx.setLineDash([2, 4]); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(x1, y); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = "#76716a"; ctx.fillText(price(v), x1 + 10, y);
+  }
+  // time labels
+  ctx.textBaseline = "alphabetic"; ctx.fillStyle = "#76716a";
+  for (let i = 0; i <= 4; i++) { const t = t0 + (t1 - t0) * i / 4, d = new Date(t * 1000); const s = S.tf > 86400 ? d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }); ctx.textAlign = i === 0 ? "left" : i === 4 ? "right" : "center"; ctx.fillText(s, Math.max(8, Math.min(x1 - 4, X(t))), H - 8); }
+  ctx.textAlign = "left";
+  // volume
+  const vmax = Math.max(1e-9, ...VOL.map(v => v.b + v.s)), bw = (x1 - x0) / VOL.length;
+  VOL.forEach((v, i) => { const hb = v.b / vmax * volH, hs = v.s / vmax * volH, x = x0 + i * bw + 1; ctx.fillStyle = "rgba(127,207,154,.45)"; ctx.fillRect(x, plotB + 8 + volH - hb, bw - 2, hb); ctx.fillStyle = "rgba(236,133,116,.45)"; ctx.fillRect(x, plotB + 8 + volH - hb - hs, bw - 2, hs); });
+  // area + line (step line: the pool price holds until the next swap)
+  const path = () => { ctx.beginPath(); ctx.moveTo(X(PTS[0].t), Y(PTS[0].px)); for (let i = 1; i < PTS.length; i++) { ctx.lineTo(X(PTS[i].t), Y(PTS[i - 1].px)); ctx.lineTo(X(PTS[i].t), Y(PTS[i].px)); } };
+  const g = ctx.createLinearGradient(0, padT, 0, plotB); g.addColorStop(0, "rgba(217,165,72,.22)"); g.addColorStop(1, "rgba(217,165,72,0)");
+  path(); ctx.lineTo(X(t1), plotB); ctx.lineTo(X(t0), plotB); ctx.closePath(); ctx.fillStyle = g; ctx.fill();
+  path(); ctx.strokeStyle = "#d9a548"; ctx.lineWidth = 1.5; ctx.lineJoin = "round"; ctx.stroke();
+  // last price tag
+  const last = PTS.at(-1).px, ly = Y(last);
+  ctx.strokeStyle = "rgba(217,165,72,.5)"; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(0, ly); ctx.lineTo(x1, ly); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = "#d9a548"; ctx.fillRect(x1 + 2, ly - 10, padR - 4, 20); ctx.fillStyle = "#120d05"; ctx.font = "500 10.5px 'Geist Mono', monospace"; ctx.textBaseline = "middle"; ctx.fillText(price(last), x1 + 8, ly + .5);
+  ctx.beginPath(); ctx.arc(X(t1), ly, 3.5, 0, 7); ctx.fillStyle = "#ecc479"; ctx.fill();
+  // crosshair
+  if (HOV != null && HOV < x1) {
+    const t = t0 + (HOV - x0) / (x1 - x0) * (t1 - t0); let k = 0; while (k < PTS.length - 1 && PTS[k + 1].t <= t) k++;
+    const v = PTS[k].px, y = Y(v);
+    ctx.strokeStyle = "rgba(242,237,229,.25)"; ctx.beginPath(); ctx.moveTo(HOV, padT - 10); ctx.lineTo(HOV, plotB); ctx.moveTo(0, y); ctx.lineTo(x1, y); ctx.stroke();
+    ctx.beginPath(); ctx.arc(HOV, y, 3.5, 0, 7); ctx.fillStyle = "#f2ede5"; ctx.fill();
+    const tip = $("tip"), d = new Date(t * 1000);
+    tip.innerHTML = `${price(v)}<br><span style="color:#76716a">${d.toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</span>`;
+    tip.style.left = Math.min(HOV + 12, x1 - 130) + "px"; tip.style.top = Math.max(8, y - 50) + "px"; tip.style.opacity = 1;
+  } else $("tip").style.opacity = 0;
+}
+cv.addEventListener("pointermove", e => { HOV = e.offsetX; draw(); });
+cv.addEventListener("pointerleave", () => { HOV = null; draw(); });
+new ResizeObserver(() => draw()).observe(cv);
+document.querySelectorAll("[data-tf]").forEach(b => b.onclick = () => { S.tf = +b.dataset.tf; document.querySelectorAll("[data-tf]").forEach(x => x.setAttribute("aria-pressed", x === b)); chart(); });
+
+/* ---------- ticket ---------- */
+const isEth = () => lower(S.m.addr) === lower(WETH);
+const inSym = () => S.side === "buy" ? S.q : S.m.tk;
+const outSym = () => S.side === "buy" ? S.m.tk : S.q;
+const addrOf = sym => sym === "USDG" ? USDG : sym === "ETH" ? WETH : S.m.addr;
+function tokens() {
+  const qs = isEth() ? ["USDG"] : S.m.kind === "pons" ? ["ETH"] : ["ETH", "USDG"];
+  if (!qs.includes(S.q)) S.q = qs[0];
+  const pick = qs.map(p => `<button type="button" data-q="${p}" aria-pressed="${p === S.q}">${p}</button>`).join("");
+  const mine = `<span>${esc(S.m.tk)}</span>`;
+  $("payTok").innerHTML = S.side === "buy" ? (qs.length > 1 ? pick : `<span>${S.q}</span>`) : mine;
+  $("getTok").innerHTML = S.side === "buy" ? mine : (qs.length > 1 ? pick : `<span>${S.q}</span>`);
+  document.querySelectorAll("[data-q]").forEach(b => b.onclick = () => { S.q = b.dataset.q; tokens(); requote(); });
+  $("payL").textContent = S.side === "buy" ? "You pay" : "You sell";
+  $("quick").innerHTML = S.side === "buy" ? (S.q === "ETH" ? (S.m.kind === "pons" ? ["0.001", "0.005", "0.01", "0.05"] : ["0.005", "0.01", "0.05", "0.1"]) : ["10", "50", "100", "500"]).map(v => `<button type="button" data-v="${v}">${v} ${S.q}</button>`).join("") : ["25", "50", "75", "100"].map(v => `<button type="button" data-pct="${v}">${v}%</button>`).join("");
+  $("quick").querySelectorAll("[data-v]").forEach(b => b.onclick = () => { $("amt").value = b.dataset.v; requote(); });
+  $("quick").querySelectorAll("[data-pct]").forEach(b => b.onclick = () => { const v = Number($("balIn").dataset.v || 0); if (v > 0) { $("amt").value = String(+(v * b.dataset.pct / 100).toPrecision(8)); requote(); } else say("Connect a wallet that holds " + S.m.tk + " to sell a share of it."); });
+  balances(); ui();
+}
+let qt = 0;
+function requote() { clearTimeout(qt); qt = setTimeout(quote, 250); }
+async function quote() {
+  const seq = ++S.seq, v = $("amt").value.replace(",", ".").trim();
+  S.quote = null; $("out").textContent = "0.0"; ["route", "px", "exp", "imp", "fees"].forEach(id => { $(id).textContent = "-"; $(id).className = ""; }); ui();
+  if (!(Number(v) > 0)) return;
+  const tIn = addrOf(inSym()), tOut = addrOf(outSym());
+  if (onCurve()) return quoteCurve(seq, v, tIn, tOut);
+  if (S.m.kind === "pons" && !POOLX) return;
+  try {
+    const [dIn, dOut] = await Promise.all([decimals(tIn), decimals(tOut)]);
+    const amountIn = parseUnits(v, dIn);
+    $("route").textContent = "finding pool…";
+    const q = await best(tIn, tOut, amountIn);
+    if (seq !== S.seq) return;
+    if (!q) { $("route").textContent = `no ${inSym()}/${outSym()} pool${S.q === "USDG" && !isEth() ? ", try ETH" : ""}`; return; }
+    const min = q.out * BigInt(10000 - S.slip) / 10000n;
+    S.quote = { tIn, tOut, dIn, dOut, amountIn, fee: q.fee, out: q.out, min };
+    const o = Number(formatUnits(q.out, dOut)), i = Number(v);
+    $("out").textContent = fmt(formatUnits(min, dOut), 6);
+    $("exp").textContent = fmt(o, 6) + " " + outSym();
+    $("route").textContent = `${inSym()} → ${outSym()}, ${(q.fee / 10000).toFixed(2)}% pool`;
+    $("fees").textContent = (q.fee / 10000).toFixed(2) + "% pool fee";
+    const each = S.side === "buy" ? i / o : o / i;
+    $("px").textContent = `1 ${S.m.tk} = ${each < .0001 ? each.toPrecision(4) : fmt(each, 6)} ${S.q}`;
+    const spotUsd = S.row[lower(S.m.addr)]?.p, qUsd = S.q === "USDG" ? 1 : ETHUSD;
+    if (spotUsd && qUsd) { const imp = S.side === "buy" ? (each * qUsd / spotUsd - 1) * 100 : (1 - each * qUsd / spotUsd) * 100; $("imp").textContent = Math.max(0, imp).toFixed(2) + "%"; $("imp").className = imp > 3 ? "dn" : ""; }
+  } catch (e) { if (seq === S.seq) $("route").textContent = "quote failed, try again"; }
+  ui();
+}
+async function quoteCurve(seq, v, tIn, tOut) {
+  try {
+    const cv = S.cv = await curveOf(S.m, true);
+    if (seq !== S.seq) return;
+    if (!onCurve()) { header(); gradNote(); tokens(); return; }
+    const amountIn = parseUnits(v, 18), buy = S.side === "buy";
+    const bps = cv.fee + cv.tax + (buy ? cv.snipe : 0n);
+    let out;
+    if (buy) { const net = amountIn * (10000n - bps) / 10000n; out = cv.T * net / (cv.Q + net); }
+    else out = cv.Q * amountIn / (cv.T + amountIn) * (10000n - bps) / 10000n;
+    const min = out * BigInt(10000 - S.slip) / 10000n;
+    S.quote = { curve: true, tIn, tOut, dIn: 18, dOut: 18, amountIn, out, min };
+    const o = Number(formatUnits(out, 18)), i = Number(v), each = buy ? i / o : o / i, spotEth = Number(cv.Q) / Number(cv.T);
+    $("out").textContent = fmt(formatUnits(min, 18), 6);
+    $("exp").textContent = fmt(o, 6) + " " + outSym();
+    $("route").textContent = `${inSym()} → ${outSym()}, Pons curve`;
+    $("px").textContent = `1 ${S.m.tk} = ${each < .0001 ? each.toPrecision(4) : fmt(each, 6)} ETH`;
+    // impact against the curve's spot price, net of fees so it shows only the move this size causes
+    const gross = each * (buy ? 1 - Number(bps) / 1e4 : 1 / (1 - Number(bps) / 1e4)), imp = buy ? (gross / spotEth - 1) * 100 : (1 - gross / spotEth) * 100;
+    $("imp").textContent = Math.max(0, imp).toFixed(2) + "%"; $("imp").className = imp > 3 ? "dn" : "";
+    $("fees").textContent = `${Number(cv.fee) / 100}% fee + ${Number(cv.tax) / 100}% creator` + (buy && cv.snipe ? ` + ${Number(cv.snipe) / 100}% snipe` : "");
+    $("fees").className = buy && cv.snipe > 0n ? "dn" : "";
+  } catch (e) { if (seq === S.seq) $("route").textContent = "quote failed, try again"; }
+  ui();
+}
+async function balances() {
+  $("balIn").textContent = ""; $("balOut").textContent = ""; $("balIn").dataset.v = "";
+  if (!S.account) return;
+  try {
+    const get = async sym => sym === "ETH" ? formatUnits(await read(c => c.getBalance({ address: S.account })), 18) : formatUnits(await read(c => c.readContract({ address: addrOf(sym), abi: ERC20, functionName: "balanceOf", args: [S.account] })), await decimals(addrOf(sym)));
+    const [a, b] = await Promise.all([get(inSym()), get(outSym())]);
+    $("balIn").textContent = "balance " + fmt(a, 6); $("balIn").dataset.v = a;
+    $("balOut").textContent = "balance " + fmt(b, 6);
+  } catch {}
+}
+function ui() {
+  const go = $("go"), c = onCurve() ? ["Pons curve", S.m.curve] : S.m.kind === "pons" && !POOLX ? null : ["Uniswap router", ROUTER];
+  $("signer").innerHTML = c ? `${c[0]} <a href="${EXP}/address/${c[1]}" target="_blank" rel="noopener">${short(c[1])}</a>` : "-";
+  if (!window.ethereum) { go.disabled = true; go.textContent = "Open in a wallet browser to trade"; return; }
+  if (!S.account) { go.disabled = false; go.textContent = "Connect wallet"; return; }
+  if (S.m.kind === "pons" && !onCurve() && !POOLX && S.cv) { go.disabled = true; go.textContent = "Trade this coin on Pons"; return; }
+  if (!S.quote) { go.disabled = true; go.textContent = "Enter an amount"; return; }
+  go.disabled = false; go.textContent = `${S.side === "buy" ? "Buy" : "Sell"} ${S.m.tk}`;
+}
+const say = (t, cls = "") => { $("msg").className = "msg " + cls; $("msg").innerHTML = t; };
+
+/* ---------- wallet ---------- */
+async function connect() {
+  if (!window.ethereum) { say("No browser wallet found. Open this page in MetaMask, Rabby, OKX or another wallet browser.", "err"); return; }
+  try {
+    const [a] = await window.ethereum.request({ method: "eth_requestAccounts" });
+    S.account = a; S.wallet = createWalletClient({ chain: CHAIN, transport: custom(window.ethereum), account: a });
+    $("connect").textContent = short(a); $("connect").classList.add("on");
+    await ensureChain(); say(""); balances(); ui();
+  } catch (e) { say(e.shortMessage || e.message || "Connection rejected.", "err"); }
+}
+async function ensureChain() {
+  const id = parseInt(await window.ethereum.request({ method: "eth_chainId" }), 16);
+  if (id === CHAIN.id) return;
+  try { await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x" + CHAIN.id.toString(16) }] }); }
+  catch (e) {
+    if (e.code !== 4902) throw e;
+    await window.ethereum.request({ method: "wallet_addEthereumChain", params: [{ chainId: "0x" + CHAIN.id.toString(16), chainName: CHAIN.name, nativeCurrency: CHAIN.nativeCurrency, rpcUrls: ["https://robinhood-rpc.publicnode.com", ...CHAIN.rpcUrls.default.http], blockExplorerUrls: [EXP] }] });
+  }
+}
+async function trade() {
+  if (!S.account) return connect();
+  const q = S.quote; if (!q) return;
+  const go = $("go"); go.disabled = true;
+  try {
+    await ensureChain();
+    if (q.curve) return await tradeCurve(q);
+    const ethIn = inSym() === "ETH", ethOut = outSym() === "ETH";
+    if (!ethIn) {
+      const allow = await read(c => c.readContract({ address: q.tIn, abi: ERC20, functionName: "allowance", args: [S.account, ROUTER] }));
+      if (allow < q.amountIn) {
+        say(`Approve ${esc(inSym())} for the Uniswap router in your wallet…`);
+        const h = await S.wallet.writeContract({ address: q.tIn, abi: ERC20, functionName: "approve", args: [ROUTER, q.amountIn] });
+        await read(c => c.waitForTransactionReceipt({ hash: h }));
+      }
+    }
+    // re-quote right before signing so the minimum reflects the pool now
+    const fresh = await best(q.tIn, q.tOut, q.amountIn);
+    if (!fresh) throw new Error("The pool has no quote right now.");
+    const min = fresh.out * BigInt(10000 - S.slip) / 10000n;
+    const calls = [encodeFunctionData({ abi: RABI, functionName: "exactInputSingle", args: [{ tokenIn: q.tIn, tokenOut: q.tOut, fee: fresh.fee, recipient: ethOut ? ADDRESS_THIS : S.account, amountIn: q.amountIn, amountOutMinimum: min, sqrtPriceLimitX96: 0n }] })];
+    if (ethOut) calls.push(encodeFunctionData({ abi: RABI, functionName: "unwrapWETH9", args: [min, S.account] }));
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 600);
+    const req = { address: ROUTER, abi: RABI, functionName: "multicall", args: [deadline, calls], account: S.account, value: ethIn ? q.amountIn : 0n };
+    say("Checking the trade against the pool…");
+    await read(c => c.simulateContract(req));
+    say("Confirm the trade in your wallet…");
+    const h = await S.wallet.writeContract(req);
+    say(`Sent. Waiting for Robinhood Chain… <a href="${EXP}/tx/${h}" target="_blank" rel="noopener">view</a>`);
+    const r = await read(c => c.waitForTransactionReceipt({ hash: h }));
+    if (r.status !== "success") throw new Error("The trade reverted. Nothing was swapped.");
+    say(`Done. <a href="${EXP}/tx/${h}" target="_blank" rel="noopener">See it on the explorer</a>`, "ok");
+    $("amt").value = ""; S.quote = null; quote(); balances(); setTimeout(chart, 1500);
+  } catch (e) { say(esc(e.shortMessage || e.message || "Trade cancelled."), "err"); }
+  ui();
+}
+/* Pons curve trade: buy sends ETH to the curve, sell pulls the coin after an approval; both are simulated first,
+   and the minimum comes from that simulation so the snipe tax and the price right now are already in it */
+async function tradeCurve(q) {
+  const m = S.m, buy = S.side === "buy";
+  if (!buy) {
+    const allow = await read(c => c.readContract({ address: m.addr, abi: ERC20, functionName: "allowance", args: [S.account, m.curve] }));
+    if (allow < q.amountIn) {
+      say(`Approve ${esc(m.tk)} for its Pons curve in your wallet…`);
+      const h = await S.wallet.writeContract({ address: m.addr, abi: ERC20, functionName: "approve", args: [m.curve, q.amountIn] });
+      await read(c => c.waitForTransactionReceipt({ hash: h }));
+    }
+  }
+  say("Checking the trade against the curve…");
+  const base = { address: m.curve, abi: CABI, account: S.account };
+  const sim = await read(c => c.simulateContract(buy ? { ...base, functionName: "buy", args: [q.amountIn, 0n, S.account], value: q.amountIn } : { ...base, functionName: "sell", args: [q.amountIn, 0n, S.account] }));
+  const min = sim.result * BigInt(10000 - S.slip) / 10000n;
+  say("Confirm the trade in your wallet…");
+  const h = await S.wallet.writeContract(buy ? { ...base, functionName: "buy", args: [q.amountIn, min, S.account], value: q.amountIn } : { ...base, functionName: "sell", args: [q.amountIn, min, S.account] });
+  say(`Sent. Waiting for Robinhood Chain… <a href="${EXP}/tx/${h}" target="_blank" rel="noopener">view</a>`);
+  const r = await read(c => c.waitForTransactionReceipt({ hash: h }));
+  if (r.status !== "success") throw new Error("The trade reverted. Nothing was traded.");
+  say(`Done. <a href="${EXP}/tx/${h}" target="_blank" rel="noopener">See it on the explorer</a>`, "ok");
+  $("amt").value = ""; S.quote = null;
+  S.cv = await curveOf(m, true).catch(() => S.cv); await loadRow(m); renderRail(); header();
+  quote(); balances(); setTimeout(chart, 1500); ui();
+}
+
+/* ---------- added tokens (paste an address, or Trade from Launches) ---------- */
+async function addToken(a) {
+  const hit = ALL().find(m => lower(m.addr) === lower(a)); if (hit) return hit;
+  const [tk, name] = await Promise.all([read(c => c.readContract({ address: a, abi: ERC20, functionName: "symbol" })), read(c => c.readContract({ address: a, abi: ERC20, functionName: "name" })).catch(() => "")]);
+  const m = { tk: String(tk).slice(0, 14), name: String(name).slice(0, 40), addr: a, kind: "added" };
+  // a coin the Pons factory launched trades on its curve, so it joins the Launches list
+  const cv = await curveOf(m).catch(() => null);
+  if (cv) { m.kind = "pons"; m.logo = await logoOf(a); LAUNCHED_M.unshift(m); } else ADDED.unshift(m);
+  return m;
+}
+$("load").onclick = async () => {
+  const a = $("find").value.trim(); $("load").textContent = "Reading the contract…";
+  try { const m = await addToken(a); $("find").value = ""; S.cat = m.kind; cats(); await select(m); }
+  catch { say("That address is not a token on Robinhood Chain.", "err"); }
+  $("load").textContent = "Load this token";
+};
+
+/* ---------- wiring ---------- */
+$("connect").onclick = connect;
+$("go").onclick = trade;
+$("amt").oninput = requote;
+$("find").oninput = renderRail;
+$("balIn").onclick = () => { const v = Number($("balIn").dataset.v || 0); if (v > 0) { $("amt").value = String(inSym() === "ETH" ? Math.max(0, v - .0005).toFixed(6) : v); requote(); } };
+document.querySelectorAll("[data-side]").forEach(b => b.onclick = () => setSide(b.dataset.side));
+document.querySelectorAll("[data-s]").forEach(b => b.onclick = () => { S.slip = +b.dataset.s; document.querySelectorAll("[data-s]").forEach(x => x.setAttribute("aria-pressed", x === b)); requote(); });
+document.querySelectorAll("[data-cat]").forEach(b => b.onclick = () => { S.cat = b.dataset.cat; cats(); renderRail(); if (S.cat === "pons") launchesData().catch(() => {}); });
+function setSide(side) { S.side = side; document.querySelectorAll("[data-side]").forEach(x => x.setAttribute("aria-pressed", x.dataset.side === side)); $("amt").value = ""; tokens(); requote(); }
+if (window.ethereum) {
+  window.ethereum.on?.("accountsChanged", a => { S.account = a[0] || null; $("connect").textContent = S.account ? short(S.account) : "Connect wallet"; $("connect").classList.toggle("on", !!S.account); if (S.account) S.wallet = createWalletClient({ chain: CHAIN, transport: custom(window.ethereum), account: S.account }); balances(); ui(); });
+  window.ethereum.request({ method: "eth_accounts" }).then(a => { if (a[0]) connect(); }).catch(() => {});
+}
+async function tick() {
+  try { const b = await read(c => c.getBlockNumber()); $("block").textContent = "block " + Number(b).toLocaleString("en-US"); $("chain").classList.add("live"); } catch { $("chain").classList.remove("live"); }
+  // a curve coin moves with every trade, so keep its price fresh while it is on the desk
+  if (onCurve() && !$("pane-swap").hidden) { const m = S.m; try { S.cv = await curveOf(m, true); if (S.m === m) { await loadRow(m); renderRail(); header(); } } catch {} }
+}
+tick(); setInterval(tick, 8000);
+
+/* tabs: the hash decides the pane; #swap:0x… opens the desk on that token */
+const loaded = {};
+let booted = false;
+async function show() {
+  const [t, arg, side] = location.hash.slice(1).split(":");
+  if (t === "swap" && (side === "buy" || side === "sell") && side !== S.side) setSide(side);
+  const tab = ["perps", "swap", "pools", "launches", "vault"].includes(t) ? t : "swap";
+  document.querySelectorAll(".pane").forEach(p => p.hidden = p.id !== "pane-" + tab);
+  document.querySelectorAll("[data-tab]").forEach(a => { if (a.dataset.tab === tab) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+  if (tab === "swap") {
+    if (!booted) { booted = true; renderRail(); tokens(); dexscreener([...STOCKS, ...CRYPTO]).then(() => { renderRail(); header(); }); ethPrice().catch(() => {}).then(() => loadRows([...STOCKS, ...CRYPTO])); }
+    if (arg && /^0x[0-9a-fA-F]{40}$/.test(arg) && lower(arg) !== lower(S.m.addr)) { try { await select(await addToken(arg)); } catch { select(S.m); } }
+    else if (!PTS.length) select(S.m);
+    else draw();
+  }
+  if (tab === "pools" && !loaded.pools) { loaded.pools = 1; pools(); }
+  if (tab === "launches") launches();
+  // the perps and vault code sits further down this module, so it runs once the module has finished loading
+  if (tab === "perps") setTimeout(ppShow);
+  if (tab === "vault") setTimeout(vShow);
+}
+addEventListener("hashchange", show); show();
+// DexScreener numbers move slowly next to the chain; once a minute is plenty and stays far under its rate limit
+setInterval(() => { if (document.hidden || $("pane-swap").hidden) return; const list = ALL().filter(m => m.kind === S.cat || m === S.m); dexscreener(list, true).then(() => { renderRail(); header(); }).catch(() => {}); }, 60000);
+
+/* ---------- pools: every pool of every market against USDG and WETH ---------- */
+let PROWS = [], PF = "all";
+async function pools() {
+  const body = $("pools");
+  try {
+    await ethPrice(); $("ps-e").textContent = price(ETHUSD);
+    const rows = [];
+    const q = [...STOCKS, ...CRYPTO];
+    const work = async () => { while (q.length) { const m = q.shift(); try {
+      const p = await poolOf(m); if (!p) continue;
+      const px = S.row[lower(m.addr)]?.p || await spot(m, p), d = await decimals(m.addr);
+      const bals = await read(c => Promise.all(p.all.map(x => c.readContract({ address: m.addr, abi: ERC20, functionName: "balanceOf", args: [x.pool] }))));
+      p.all.forEach((x, i) => { const ta = Number(formatUnits(bals[i], d)); rows.push({ m, qs: x.q === USDG ? "USDG" : "ETH", fee: x.fee, pool: x.pool, ta, tb: x.qBal, usd: ta * px + x.qBal * x.qUsd }); });
+    } catch {} } };
+    await Promise.all([work(), work(), work()]);
+    PROWS = rows.filter(r => r.usd >= 1).sort((a, b) => b.usd - a.usd);
+    renderPools();
+  } catch (e) { loaded.pools = 0; body.innerHTML = `<tr><td colspan="7" class="empty">Robinhood Chain did not answer. Open the tab again to retry.</td></tr>`; }
+}
+function renderPools() {
+  const rows = PROWS.filter(r => PF === "all" || r.m.kind === PF), max = rows[0]?.usd || 1, total = rows.reduce((t, r) => t + r.usd, 0);
+  $("ps-n").textContent = rows.length; $("ps-v").textContent = usdS(total); $("ps-d").textContent = rows[0] ? rows[0].m.tk + "/" + rows[0].qs : "-";
+  $("pools").innerHTML = rows.length ? rows.map(r => `<tr><td><div class="coin">${face(r.m)}<div><b>${esc(r.m.tk)}</b> / ${r.qs}<small>${esc(r.m.name || "")}</small></div></div></td><td><span class="pill">${(r.fee / 10000).toFixed(2)}%</span></td><td class="num">${amt(r.ta)} ${esc(r.m.tk)}</td><td class="num">${amt(r.tb)} ${r.qs}</td><td class="num">${usdS(r.usd)}<div class="bar"><i style="width:${Math.max(2, r.usd / max * 100)}%"></i></div></td><td><a class="addr" href="${EXP}/address/${r.pool}" target="_blank" rel="noopener">${short(r.pool)}</a></td><td class="num"><a class="trade" href="#swap:${r.m.addr}">Trade</a></td></tr>`).join("")
+    : `<tr><td colspan="7" class="empty">No pools found.</td></tr>`;
+}
+document.querySelectorAll("[data-pf]").forEach(b => b.onclick = () => { PF = b.dataset.pf; document.querySelectorAll("[data-pf]").forEach(x => x.setAttribute("aria-pressed", x === b)); renderPools(); });
+
+/* ---------- launches: TokenLaunched(token, curve, deployer) from the Pons factory, each coin priced off its curve ---------- */
+function launchesData() { return LBUSY ||= readLaunches().finally(() => { LBUSY = null; }); }
+async function readLaunches() {
+  await clock(); if (!ETHUSD) await ethPrice().catch(() => {});
+  let logs = [];
+  if (LLAST) logs = await pubs[0].request({ method: "eth_getLogs", params: [{ fromBlock: "0x" + (LLAST + 1n).toString(16), toBlock: "0x" + HEAD.toString(16), address: PONS, topics: [LAUNCHED] }] });
+  else {
+    let span = 200000n;
+    for (let i = 0; i < 5 && !logs.length; i++) {
+      logs = await pubs[0].request({ method: "eth_getLogs", params: [{ fromBlock: "0x" + (HEAD - span).toString(16), toBlock: "0x" + HEAD.toString(16), address: PONS, topics: [LAUNCHED] }] }).catch(() => []);
+      span *= 3n;
+    }
+  }
+  LLAST = HEAD;
+  const fresh = logs.slice(-LMAX).map(l => ({ addr: "0x" + l.topics[1].slice(26), curve: "0x" + l.topics[2].slice(26), creator: "0x" + l.topics[3].slice(26), pair: "0x" + l.data.slice(26, 66), block: BigInt(l.blockNumber) }))
+    .filter(x => !LAUNCHED_M.some(m => lower(m.addr) === lower(x.addr)));
+  const metas = await read(c => Promise.all(fresh.map(x => Promise.all([c.readContract({ address: x.addr, abi: ERC20, functionName: "symbol" }).catch(() => "?"), c.readContract({ address: x.addr, abi: ERC20, functionName: "name" }).catch(() => ""),
+    c.readContract({ address: x.addr, abi: TABI, functionName: "getTokenInfo" }).then(r => logoUrl(r[1])).catch(() => "")]))));
+  fresh.forEach((x, i) => LAUNCHED_M.push({ ...x, tk: String(metas[i][0]).slice(0, 14), name: String(metas[i][1]).slice(0, 40), logo: metas[i][2], kind: "pons" }));
+  LAUNCHED_M.sort((a, b) => (b.block || 0n) > (a.block || 0n) ? 1 : -1);
+  // every listed coin's curve, newest first; graduated ones keep their last state, they no longer move here
+  const list = LAUNCHED_M.slice(0, LMAX).filter(m => !CURVE[lower(m.addr)]?.grad);
+  await Promise.all(list.map(m => curveOf(m, true).then(cv => { const k = lower(m.addr); if (cv && !cv.grad && cv.eth) S.row[k] = { p: curvePx(cv), sub: "curve " + Math.round(curveFill(cv) * 100) + "%" }; else if (cv?.grad) S.row[k] = { p: 0, sub: "graduated" }; else if (cv) S.row[k] = { p: 0, sub: "not an ETH pair" }; }).catch(() => {})));
+  await dexscreener(LAUNCHED_M.slice(0, LMAX).filter(m => CURVE[lower(m.addr)]?.grad || !(lower(m.addr) in DS))).catch(() => {});
+  LDONE = true;
+  if (S.cat === "pons") renderRail();
+  if (!$("pane-launches").hidden) renderLaunches();
+}
+async function launches() {
+  if (!LDONE) $("launches").innerHTML = `<tr><td colspan="7" class="empty">Reading the Pons factory…</td></tr>`;
+  try { await launchesData(); renderLaunches(); }
+  catch { if (!LDONE) $("launches").innerHTML = `<tr><td colspan="7" class="empty">Robinhood Chain did not answer. Open the tab again to retry.</td></tr>`; }
+}
+function renderLaunches() {
+  const now = Date.now() / 1000, all = LAUNCHED_M.filter(m => m.block).slice(0, LMAX);
+  const state = m => CURVE[lower(m.addr)];
+  const rows = all.filter(m => LF === "all" || (LF === "grad" ? state(m)?.grad : state(m) && !state(m).grad));
+  const live = all.filter(m => state(m) && !state(m).grad), top = [...live].sort((a, b) => curveFill(state(b)) - curveFill(state(a)))[0];
+  $("ls-n").textContent = all.length; $("ls-c").textContent = live.length;
+  $("ls-g").textContent = top ? `${top.tk} ${Math.round(curveFill(state(top)) * 100)}%` : "-";
+  $("ls-a").textContent = all[0] ? ago(Number(HEAD - all[0].block) * SPB) : "-";
+  $("ls-live").textContent = "updates every 20 s";
+  $("launches").innerHTML = rows.length ? rows.map(m => {
+    const cv = state(m), d = dsOf(m), live = cv && cv.eth && !cv.grad, fill = curveFill(cv);
+    const px = live ? curvePx(cv) : d ? +d.priceUsd : 0;
+    const cap = live && cv.sup ? usdS(px * Number(formatUnits(cv.sup, 18))) : dsCap(d) ? usdS(dsCap(d)) : "-";
+    const curve = !cv ? `<span class="cv">…</span>` : cv.grad ? `<span class="cv done"><span class="bar"><i style="width:100%"></i></span>graduated</span>`
+      : `<span class="cv"><span class="bar"><i style="width:${Math.max(2, fill * 100)}%"></i></span>${(fill * 100).toFixed(1)}%</span>`;
+    const pons = `https://ponsfamily.com/launchpad/${m.addr}`;
+    const acts = cv && !cv.grad && cv.eth ? `<a class="trade b" href="#swap:${m.addr}:buy">Buy</a><a class="trade s" href="#swap:${m.addr}:sell">Sell</a>`
+      : (d ? `<a class="trade x" href="${esc(d.url)}" target="_blank" rel="noopener">Chart ↗</a>` : "") + `<a class="trade x" href="${pons}" target="_blank" rel="noopener">Pons ↗</a>`;
+    return `<tr><td><div class="coin">${face(m)}<div><b>${esc(m.tk)}</b><small>${esc(m.name || "")}</small><br><a class="addr" href="${EXP}/token/${m.addr}" target="_blank" rel="noopener">${short(m.addr)}</a></div></div></td><td class="num">${px ? price(px) : "-"}</td><td class="num">${cap}</td><td>${curve}</td><td><a class="addr" href="${EXP}/address/${m.creator}" target="_blank" rel="noopener">${short(m.creator)}</a></td><td class="num">${ago(Number(HEAD - m.block) * SPB)} ago</td><td class="num"><span class="acts">${acts}</span></td></tr>`;
+  }).join("") : `<tr><td colspan="7" class="empty">${LDONE ? "No coins match this filter." : "Reading the Pons factory…"}</td></tr>`;
+}
+/* ---------- perps (paper): live mark prices, a practice balance in this browser; no contract, nothing at stake ----------
+   State lives in var bindings: show() can run for #perps before this part of the module has been evaluated. */
+var PP_KEY = "masque.paper.v1", PP_START = 10000, PP_FEE = .0006, PP_MM = .01;
+var PP = null, PPS = { m: null, side: "long", ticks: [], seq: 0, timer: 0, armed: 0 };
+var ppMarkets = () => [...STOCKS, CRYPTO[0], CRYPTO[1]];
+var ppMax = m => m.kind === "stock" ? 10 : 20;
+var ppMark = m => (m && S.row[lower(m.addr)]?.p) || 0;
+var ppPnl = (p, mark) => (p.side === "long" ? mark - p.entry : p.entry - mark) * p.size;
+var ppLiq = (side, entry, lev) => side === "long" ? entry * (1 - 1 / lev + PP_MM) : entry * (1 + 1 / lev - PP_MM);
+var byAddr = a => ALL().find(m => lower(m.addr) === lower(a));
+function ppLoad() {
+  try { const v = JSON.parse(localStorage.getItem(PP_KEY)); if (v && typeof v.cash === "number" && Array.isArray(v.pos)) return v; } catch {}
+  return { cash: PP_START, pos: [], hist: [] };
+}
+function ppSave() { try { localStorage.setItem(PP_KEY, JSON.stringify(PP)); } catch {} }
+var ppUsd = v => (v < 0 ? "-$" : "$") + Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function ppEquity() { return PP.cash + PP.pos.reduce((t, p) => t + p.margin + ppPnl(p, ppMark(byAddr(p.addr)) || p.entry), 0); }
+
+async function ppShow() {
+  if (!PP) {
+    PP = ppLoad(); PPS.m = STOCKS[0];
+    $("pp-reset").onclick = () => {
+      if (Date.now() - PPS.armed > 4000) { PPS.armed = Date.now(); $("pp-reset").textContent = "Click again to reset"; setTimeout(() => $("pp-reset").textContent = "Reset balance", 4000); return; }
+      PP = { cash: PP_START, pos: [], hist: [] }; ppSave(); $("pp-reset").textContent = "Reset balance"; ppMsg("Balance reset to $10,000."); ppRender();
+    };
+    document.querySelectorAll("[data-pside]").forEach(b => b.onclick = () => { PPS.side = b.dataset.pside; document.querySelectorAll("[data-pside]").forEach(x => x.setAttribute("aria-pressed", x === b)); ppTicket(); });
+    document.querySelectorAll("[data-pp]").forEach(b => b.onclick = () => { $("pp-amt").value = (Math.floor(PP.cash / (1 + PP_FEE * +$("pp-lev").value) * b.dataset.pp) / 100).toFixed(2); ppTicket(); });
+    $("pp-bal").onclick = () => document.querySelector('[data-pp="100"]').click();
+    ["pp-amt", "pp-tp", "pp-sl"].forEach(id => $(id).oninput = ppTicket);
+    $("pp-lev").oninput = ppTicket;
+    $("pp-go").onclick = ppOpen;
+    new ResizeObserver(() => ppDraw()).observe($("pp-cv"));
+    if (!ETHUSD) await ethPrice().catch(() => {});
+    ppSelect(PPS.m);
+    loadRows(ppMarkets().filter(m => !S.row[lower(m.addr)])).then(ppRender);
+  }
+  clearInterval(PPS.timer); PPS.timer = setInterval(ppTick, 5000); ppRender();
+}
+async function ppSelect(m) {
+  PPS.m = m; PPS.ticks = []; const seq = ++PPS.seq;
+  const lev = $("pp-lev"); lev.max = ppMax(m); if (+lev.value > ppMax(m)) lev.value = ppMax(m);
+  $("pp-note").textContent = "Reading prices…"; ppRender();
+  try {
+    const p = await poolOf(m); if (!p || seq !== PPS.seq) return;
+    if (!S.row[lower(m.addr)]) await loadRow(m);
+    // seed the line with the last 6 hours of pool swaps, then every 5 s tick is appended
+    const [dX, dQ] = await Promise.all([decimals(m.addr), decimals(p.q)]);
+    const { logs } = await swaps(p.pool, [SWAP], 6 * 3600).catch(() => ({ logs: [] }));
+    if (seq !== PPS.seq) return;
+    const now = Date.now() / 1000, x0 = lower(m.addr) < lower(p.q), qUsd = p.q === USDG ? 1 : ETHUSD;
+    PPS.ticks = logs.map(l => { const sq = Number(word(l.data, 2)) / 2 ** 96, raw = sq * sq; return { t: now - Number(HEAD - BigInt(l.blockNumber)) * SPB, px: (x0 ? raw : 1 / raw) * 10 ** (dX - dQ) * qUsd }; });
+    const cur = ppMark(m); if (cur) PPS.ticks.push({ t: now, px: cur });
+    if (PPS.ticks.length < 2 && cur) PPS.ticks.unshift({ t: now - 6 * 3600, px: cur });
+    $("pp-note").textContent = logs.length ? "" : "No pool trades in the last 6 hours; the line fills in as prices are read.";
+  } catch { if (seq === PPS.seq) $("pp-note").textContent = "Robinhood Chain did not answer; retrying every 5 seconds."; }
+  ppRender();
+}
+async function ppTick() {
+  if (document.hidden || $("pane-perps").hidden) return;
+  const want = [PPS.m, ...PP.pos.map(p => byAddr(p.addr))].filter((m, i, a) => m && a.indexOf(m) === i);
+  await Promise.all(want.map(m => loadRow(m)));
+  const cur = ppMark(PPS.m); if (cur) { PPS.ticks.push({ t: Date.now() / 1000, px: cur }); if (PPS.ticks.length > 2000) PPS.ticks.shift(); }
+  // liquidation first, then the trader's own exits
+  for (const p of [...PP.pos]) {
+    const mk = ppMark(byAddr(p.addr)); if (!mk) continue;
+    if (p.side === "long" ? mk <= p.liq : mk >= p.liq) ppClose(p.id, "liquidated");
+    else if (p.tp && (p.side === "long" ? mk >= p.tp : mk <= p.tp)) ppClose(p.id, "take profit");
+    else if (p.sl && (p.side === "long" ? mk <= p.sl : mk >= p.sl)) ppClose(p.id, "stop loss");
+  }
+  ppRender();
+}
+function ppOrder() {
+  const m = PPS.m, mark = ppMark(m), margin = Number($("pp-amt").value.replace(",", ".")), lev = +$("pp-lev").value;
+  if (!(margin > 0) || !mark) return { m, mark, lev, err: !mark ? "Waiting for a price" : "Enter a margin" };
+  const notional = margin * lev, fee = notional * PP_FEE, liq = ppLiq(PPS.side, mark, lev);
+  const tp = Number($("pp-tp").value) || 0, sl = Number($("pp-sl").value) || 0, long = PPS.side === "long";
+  let err = "";
+  if (margin + fee > PP.cash + 1e-9) err = "Not enough free balance";
+  else if (margin < 1) err = "Minimum margin is $1";
+  else if (tp && (long ? tp <= mark : tp >= mark)) err = `Take profit must be ${long ? "above" : "below"} the mark`;
+  else if (sl && (long ? sl >= mark || sl <= liq : sl <= mark || sl >= liq)) err = `Stop loss must sit between the mark and the liquidation price`;
+  return { m, mark, lev, margin, notional, fee, liq, tp, sl, size: notional / mark, err };
+}
+function ppTicket() {
+  const o = ppOrder();
+  $("pp-levv").textContent = o.lev + "x";
+  $("pp-bal").textContent = PP ? "free " + ppUsd(PP.cash) : "";
+  $("pp-size").textContent = o.size ? `${amt(o.size)} ${o.m.tk} · ${usdS(o.notional)}` : "-";
+  $("pp-entry").textContent = o.mark ? price(o.mark) : "-";
+  $("pp-liq").textContent = o.liq ? price(o.liq) : "-";
+  $("pp-fee").textContent = o.fee ? ppUsd(o.fee) : "-";
+  const go = $("pp-go"); go.disabled = !!o.err; go.className = "go" + (PPS.side === "short" ? " short" : "");
+  go.textContent = o.err || `Open ${o.lev}x ${PPS.side} ${o.m.tk} (paper)`;
+}
+function ppOpen() {
+  const o = ppOrder(); if (o.err) return;
+  PP.cash -= o.margin + o.fee;
+  PP.pos.unshift({ id: Date.now(), addr: o.m.addr, tk: o.m.tk, side: PPS.side, lev: o.lev, margin: o.margin, entry: o.mark, size: o.size, liq: o.liq, tp: o.tp || 0, sl: o.sl || 0, at: Date.now() });
+  ppSave(); $("pp-amt").value = ""; $("pp-tp").value = ""; $("pp-sl").value = "";
+  ppMsg(`Opened ${o.lev}x ${PPS.side} ${esc(o.m.tk)} at ${price(o.mark)}.`, "ok"); ppRender();
+}
+function ppClose(id, reason) {
+  const p = PP.pos.find(x => x.id === id); if (!p) return;
+  const mk = ppMark(byAddr(p.addr)) || p.entry, pnl = ppPnl(p, mk), fee = p.size * mk * PP_FEE;
+  // a liquidated position loses its whole margin; anything else returns margin plus PnL minus the closing fee
+  const back = reason === "liquidated" ? 0 : Math.max(0, p.margin + pnl - fee);
+  PP.cash += back; PP.pos = PP.pos.filter(x => x !== p);
+  PP.hist.unshift({ tk: p.tk, side: p.side, lev: p.lev, entry: p.entry, exit: mk, pnl: back - p.margin, reason, at: Date.now() }); PP.hist = PP.hist.slice(0, 100);
+  ppSave(); ppMsg(`${reason === "manual" ? "Closed" : reason[0].toUpperCase() + reason.slice(1) + ":"} ${esc(p.tk)} ${p.side}, ${ppUsd(back - p.margin)}.`, back >= p.margin ? "ok" : "err");
+}
+var ppMsg = (t, cls = "") => { $("pp-msg").className = "msg " + cls; $("pp-msg").innerHTML = t; };
+function ppRender() {
+  if (!PP || !PPS.m) return;
+  const m = PPS.m, r = S.row[lower(m.addr)] || {}, mark = ppMark(m);
+  // rail
+  $("pp-list").innerHTML = "";
+  for (const x of ppMarkets()) {
+    const b = document.createElement("button"), rr = S.row[lower(x.addr)] || {}, open = PP.pos.filter(p => lower(p.addr) === lower(x.addr)).length;
+    b.className = "mrow"; b.type = "button"; b.setAttribute("aria-pressed", x === m);
+    b.innerHTML = `${face(x)}<span><b>${esc(x.tk)}</b><small>${esc(x.name || "")}</small></span><span class="r"><span>${rr.p ? price(rr.p) : "…"}</span><small class="${open ? "up" : ""}">${open ? open + " open" : "up to " + ppMax(x) + "x"}</small></span>`;
+    b.onclick = () => ppSelect(x); $("pp-list").append(b);
+  }
+  // header
+  $("pp-tk").textContent = m.tk; $("pp-name").textContent = m.name || "";
+  if ($("pp-logo").dataset.a !== m.addr) $("pp-logo").outerHTML = face(m, "lg").replace('class="glyph lg"', `class="glyph lg" id="pp-logo" data-a="${m.addr}"`);
+  $("pp-px").textContent = mark ? price(mark) : "…";
+  const first = PPS.ticks[0]?.px, ch = first && mark ? (mark / first - 1) * 100 : null;
+  $("pp-ch").textContent = ch == null ? "" : pct(ch) + " 6h"; $("pp-ch").className = "ch m " + (ch >= 0 ? "up" : "dn");
+  $("pp-refL").textContent = m.feed ? "Chainlink" : "Pool depth";
+  $("pp-ref").textContent = m.feed ? (r.ref ? price(r.ref) : "-") : (POOL[lower(m.addr)] ? "…" : "-");
+  if (!m.feed) poolOf(m).then(p => { if (PPS.m === m && p) $("pp-ref").textContent = usdS(p.depth); }).catch(() => {});
+  $("pp-max").textContent = ppMax(m) + "x";
+  const eq = ppEquity(); $("pp-eq").textContent = ppUsd(eq); $("pp-eq").className = eq >= PP_START ? "up" : "dn";
+  $("pp-cash").textContent = ppUsd(PP.cash);
+  // positions
+  const upnl = PP.pos.reduce((t, p) => t + ppPnl(p, ppMark(byAddr(p.addr)) || p.entry), 0);
+  $("pp-upnl").innerHTML = PP.pos.length ? `unrealised <b class="${upnl >= 0 ? "up" : "dn"}">${ppUsd(upnl)}</b>` : "";
+  $("pp-pos").innerHTML = PP.pos.length ? PP.pos.map(p => {
+    const mk = ppMark(byAddr(p.addr)) || p.entry, pnl = ppPnl(p, mk), roe = pnl / p.margin * 100;
+    return `<tr><td><b>${esc(p.tk)}</b></td><td class="${p.side === "long" ? "up" : "dn"}"><b>${p.side === "long" ? "Long" : "Short"}</b> ${p.lev}x</td><td class="num">${amt(p.size)} · ${usdS(p.size * mk)}</td><td class="num">${price(p.entry)}</td><td class="num">${price(mk)}</td><td class="num">${price(p.liq)}</td><td class="num ${pnl >= 0 ? "up" : "dn"}">${ppUsd(pnl)} <small>${pct(roe)}</small></td><td class="m">${p.tp ? price(p.tp) : "-"} / ${p.sl ? price(p.sl) : "-"}</td><td class="num"><button class="x" type="button" data-close="${p.id}">Close</button></td></tr>`;
+  }).join("") : `<tr><td colspan="9" class="empty">No open positions.</td></tr>`;
+  $("pp-pos").querySelectorAll("[data-close]").forEach(b => b.onclick = () => { ppClose(+b.dataset.close, "manual"); ppRender(); });
+  $("pp-hist").innerHTML = PP.hist.length ? PP.hist.slice(0, 30).map(h => `<tr><td class="m">${new Date(h.at).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</td><td><b>${esc(h.tk)}</b></td><td class="${h.side === "long" ? "up" : "dn"}">${h.side} ${h.lev}x</td><td class="num">${price(h.entry)}</td><td class="num">${price(h.exit)}</td><td class="num ${h.pnl >= 0 ? "up" : "dn"}">${ppUsd(h.pnl)}</td><td>${esc(h.reason)}</td></tr>`).join("")
+    : `<tr><td colspan="7" class="empty">Nothing closed yet.</td></tr>`;
+  ppTicket(); ppDraw();
+}
+function ppDraw() {
+  const cv = $("pp-cv"), c = cv.getContext("2d"), dpr = Math.min(2, devicePixelRatio || 1), W = cv.clientWidth, H = cv.clientHeight;
+  if (!W) return;
+  cv.width = W * dpr; cv.height = H * dpr; c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
+  const T = PPS.ticks; if (T.length < 2) return;
+  const padR = 76, padT = 40, padB = 28, x1 = W - padR, t0 = T[0].t, t1 = T.at(-1).t;
+  const opens = PP.pos.filter(p => lower(p.addr) === lower(PPS.m.addr));
+  let lo = Math.min(...T.map(p => p.px), ...opens.map(p => p.entry)), hi = Math.max(...T.map(p => p.px), ...opens.map(p => p.entry));
+  if (hi - lo < hi * .002) { lo *= .998; hi *= 1.002; }
+  const pad = (hi - lo) * .12; lo -= pad; hi += pad;
+  const X = t => (t - t0) / (t1 - t0 || 1) * x1, Y = v => padT + (1 - (v - lo) / (hi - lo)) * (H - padT - padB);
+  c.font = "400 10.5px 'Geist Mono', monospace"; c.textBaseline = "middle";
+  for (let i = 0; i <= 4; i++) { const v = lo + (hi - lo) * i / 4, y = Y(v); c.strokeStyle = "rgba(242,237,229,.05)"; c.setLineDash([2, 4]); c.beginPath(); c.moveTo(0, y); c.lineTo(x1, y); c.stroke(); c.setLineDash([]); c.fillStyle = "#76716a"; c.fillText(price(v), x1 + 10, y); }
+  c.textBaseline = "alphabetic"; for (let i = 0; i <= 3; i++) { const t = t0 + (t1 - t0) * i / 3; c.textAlign = i === 0 ? "left" : i === 3 ? "right" : "center"; c.fillText(new Date(t * 1000).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }), Math.max(6, Math.min(x1 - 4, X(t))), H - 8); }
+  c.textAlign = "left";
+  const path = () => { c.beginPath(); c.moveTo(X(T[0].t), Y(T[0].px)); for (let i = 1; i < T.length; i++) { c.lineTo(X(T[i].t), Y(T[i - 1].px)); c.lineTo(X(T[i].t), Y(T[i].px)); } };
+  const g = c.createLinearGradient(0, padT, 0, H - padB); g.addColorStop(0, "rgba(217,165,72,.2)"); g.addColorStop(1, "rgba(217,165,72,0)");
+  path(); c.lineTo(X(t1), H - padB); c.lineTo(X(t0), H - padB); c.closePath(); c.fillStyle = g; c.fill();
+  path(); c.strokeStyle = "#d9a548"; c.lineWidth = 1.5; c.stroke();
+  // each open position: entry line in its side's colour, liquidation dashed
+  for (const p of opens) {
+    const col = p.side === "long" ? "127,207,154" : "236,133,116";
+    c.strokeStyle = `rgba(${col},.8)`; c.beginPath(); c.moveTo(0, Y(p.entry)); c.lineTo(x1, Y(p.entry)); c.stroke();
+    c.fillStyle = `rgb(${col})`; c.fillText(`${p.side} ${p.lev}x`, 8, Y(p.entry) - 6);
+    const ly = Y(p.liq); if (ly > padT && ly < H - padB) { c.setLineDash([4, 4]); c.strokeStyle = "rgba(236,133,116,.6)"; c.beginPath(); c.moveTo(0, ly); c.lineTo(x1, ly); c.stroke(); c.setLineDash([]); c.fillText("liq.", 8, ly - 6); }
+  }
+  const last = T.at(-1).px, ly = Y(last);
+  c.fillStyle = "#d9a548"; c.fillRect(x1 + 2, ly - 10, padR - 4, 20); c.fillStyle = "#120d05"; c.font = "500 10.5px 'Geist Mono', monospace"; c.textBaseline = "middle"; c.fillText(price(last), x1 + 8, ly + .5);
+}
+
+/* ---------- vault: MasqueVault on Robinhood Chain testnet. data/vault-testnet.json is written by contracts/scripts/deploy.js ---------- */
+var TCHAIN = { id: 46630, name: "Robinhood Chain Testnet", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+  rpcUrls: { default: { http: ["https://rpc.testnet.chain.robinhood.com"] } }, blockExplorers: { default: { name: "Explorer", url: "https://explorer.testnet.chain.robinhood.com" } } };
+var TEXP = TCHAIN.blockExplorers.default.url;
+var VABI = parseAbi(["function deposit(bytes32 pocket) payable", "function depositToken(address token, uint256 amount, bytes32 pocket)",
+  "function withdraw(address token, uint256 amount, bytes32 pocket, address to)", "function move(address token, uint256 amount, bytes32 from, bytes32 to)", "function lock(bytes32 pocket, uint64 until)",
+  "function balanceOf(address owner, bytes32 pocket, address token) view returns (uint256)", "function lockedUntil(address owner, bytes32 pocket) view returns (uint64)",
+  "event Deposited(address indexed owner, bytes32 indexed pocket, address indexed token, uint256 amount)", "event Withdrawn(address indexed owner, bytes32 indexed pocket, address indexed token, uint256 amount, address to)",
+  "event Moved(address indexed owner, bytes32 from, bytes32 to, address indexed token, uint256 amount)", "event Locked(address indexed owner, bytes32 indexed pocket, uint64 until)"]);
+var FAUCET_ABI = parseAbi(["function faucet()", "function drip() view returns (uint256)"]);
+var V = { cfg: null, tried: false, account: null, wallet: null, pub: null, pockets: [], busy: false };
+var V_LABELS = "masque.pockets.v1";
+var pocketId = label => keccak256(toHex(label.trim().toLowerCase()));
+function labels() { let m = {}; try { m = JSON.parse(localStorage.getItem(V_LABELS)) || {}; } catch {} for (const l of ["main", "long-term"]) m[pocketId(l)] = l; return m; }
+function remember(label) { const m = labels(); m[pocketId(label)] = label.trim().toLowerCase(); try { localStorage.setItem(V_LABELS, JSON.stringify(m)); } catch {} }
+var vMsg = (t, cls = "") => { $("v-msg").className = "msg " + cls; $("v-msg").innerHTML = t; };
+var vAssets = () => [{ sym: "ETH", addr: "0x0000000000000000000000000000000000000000", dec: 18 }, ...(V.cfg?.tokens || [])];
+
+async function vShow() {
+  if (!V.tried) {
+    V.tried = true;
+    try { V.cfg = await fetch("data/vault-testnet.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null); } catch { V.cfg = null; }
+    V.pub = createPublicClient({ chain: TCHAIN, transport: http(location.protocol.startsWith("http") ? new URL("/rpc-test", location.href).href : TCHAIN.rpcUrls.default.http[0], { retryCount: 1, timeout: 20000 }) });
+    $("v-connect").onclick = vConnect;
+    $("v-dep").onsubmit = e => vAct(e, vDeposit); $("v-wd").onsubmit = e => vAct(e, vWithdraw); $("v-mv").onsubmit = e => vAct(e, vMove); $("v-lk").onsubmit = e => vAct(e, vLock);
+    if (window.ethereum) window.ethereum.on?.("accountsChanged", a => { if (V.account) { V.account = a[0] || null; vWallet(); vLoad(); } });
+  }
+  if (!V.cfg) {
+    $("v-addr").textContent = "not deployed yet"; $("v-net").textContent = "waiting for testnet deploy";
+    vMsg("The vault contract is written and passes its 9 tests; it goes on Robinhood Chain testnet next. This page fills in once it is deployed.");
+    document.querySelectorAll("#pane-vault .go, #v-connect").forEach(b => b.disabled = true); return;
+  }
+  $("v-addr").innerHTML = `<a href="${TEXP}/address/${V.cfg.vault}" target="_blank" rel="noopener">${short(V.cfg.vault)}</a>`;
+  document.querySelectorAll(".v-asset").forEach(sel => sel.innerHTML = vAssets().map(a => `<option value="${a.addr}">${esc(a.sym)}</option>`).join(""));
+  $("v-faucets").innerHTML = (V.cfg.tokens || []).map(t => `<button class="trade x" type="button" data-faucet="${t.addr}">Get ${esc(t.sym)}</button>`).join(" ");
+  $("v-faucets").querySelectorAll("[data-faucet]").forEach(b => b.onclick = () => vAct(null, () => vFaucet(b.dataset.faucet)));
+  V.pub.getBlockNumber().then(b => $("v-net").textContent = "testnet block " + Number(b).toLocaleString("en-US")).catch(() => $("v-net").textContent = "testnet not answering");
+  vPocketsUI();
+  if (window.ethereum && !V.account) window.ethereum.request({ method: "eth_accounts" }).then(a => { if (a[0]) vConnect(); }).catch(() => {});
+}
+function vWallet() { V.wallet = V.account ? createWalletClient({ chain: TCHAIN, transport: custom(window.ethereum), account: V.account }) : null; $("v-connect").textContent = V.account ? short(V.account) : "Connect wallet"; $("v-connect").classList.toggle("on", !!V.account); }
+async function vConnect() {
+  if (!window.ethereum) return vMsg("No browser wallet found. Open this page in MetaMask, Rabby or another wallet browser.", "err");
+  try { const [a] = await window.ethereum.request({ method: "eth_requestAccounts" }); V.account = a; vWallet(); await vChain(); vMsg(""); vLoad(); }
+  catch (e) { vMsg(esc(e.shortMessage || e.message || "Connection rejected."), "err"); }
+}
+async function vChain() {
+  const id = parseInt(await window.ethereum.request({ method: "eth_chainId" }), 16);
+  if (id === TCHAIN.id) return;
+  try { await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x" + TCHAIN.id.toString(16) }] }); }
+  catch (e) {
+    if (e.code !== 4902 && e?.data?.originalError?.code !== 4902) throw e;
+    // the official testnet RPC is blocked on some networks; this site's relay comes first when it is served over https
+    const relay = location.protocol === "https:" ? [new URL("/rpc-test", location.href).href] : [];
+    await window.ethereum.request({ method: "wallet_addEthereumChain", params: [{ chainId: "0x" + TCHAIN.id.toString(16), chainName: TCHAIN.name, nativeCurrency: TCHAIN.nativeCurrency, rpcUrls: [...relay, ...TCHAIN.rpcUrls.default.http], blockExplorerUrls: [TEXP] }] });
+  }
+}
+async function vAct(e, fn) {
+  e?.preventDefault();
+  if (V.busy) return; if (!V.cfg) return;
+  if (!V.account) await vConnect(); if (!V.account) return;
+  V.busy = true; document.querySelectorAll("#pane-vault .go").forEach(b => b.disabled = true);
+  try { await vChain(); await fn(e ? new FormData(e.target) : null); vLoad(); }
+  catch (err) { vMsg(esc((err.shortMessage || err.message || "Cancelled.").split("\n")[0]), "err"); }
+  V.busy = false; document.querySelectorAll("#pane-vault .go").forEach(b => b.disabled = false);
+}
+var vAsset = a => vAssets().find(x => lower(x.addr) === lower(a));
+async function vSend(req, what) {
+  vMsg(`Checking ${what} against the vault…`);
+  await V.pub.simulateContract({ ...req, account: V.account });
+  vMsg("Confirm in your wallet…");
+  const h = await V.wallet.writeContract({ ...req, account: V.account, chain: TCHAIN });
+  vMsg(`Sent. Waiting for the testnet… <a href="${TEXP}/tx/${h}" target="_blank" rel="noopener">view</a>`);
+  const r = await V.pub.waitForTransactionReceipt({ hash: h });
+  if (r.status !== "success") throw new Error(`The ${what} reverted.`);
+  vMsg(`Done: ${what}. <a href="${TEXP}/tx/${h}" target="_blank" rel="noopener">See it on the explorer</a>`, "ok");
+}
+async function vDeposit(fd) {
+  const label = String(fd.get("pocket")).trim(), a = vAsset(fd.get("asset")), amount = parseUnits(String(fd.get("amount")).replace(",", "."), a.dec);
+  if (!label) throw new Error("Name the pocket."); if (!(amount > 0n)) throw new Error("Enter an amount.");
+  remember(label);
+  if (a.sym === "ETH") return vSend({ address: V.cfg.vault, abi: VABI, functionName: "deposit", args: [pocketId(label)], value: amount }, "deposit");
+  const allow = await V.pub.readContract({ address: a.addr, abi: ERC20, functionName: "allowance", args: [V.account, V.cfg.vault] });
+  if (allow < amount) await vSend({ address: a.addr, abi: ERC20, functionName: "approve", args: [V.cfg.vault, amount] }, `approval of ${a.sym}`);
+  return vSend({ address: V.cfg.vault, abi: VABI, functionName: "depositToken", args: [a.addr, amount, pocketId(label)] }, "deposit");
+}
+async function vWithdraw(fd) {
+  const a = vAsset(fd.get("asset")), amount = parseUnits(String(fd.get("amount")).replace(",", "."), a.dec), to = String(fd.get("to") || "").trim() || V.account;
+  if (!isAddress(to)) throw new Error("That is not an address.");
+  return vSend({ address: V.cfg.vault, abi: VABI, functionName: "withdraw", args: [a.addr, amount, fd.get("pocket"), to] }, "withdrawal");
+}
+async function vMove(fd) {
+  const a = vAsset(fd.get("asset")), amount = parseUnits(String(fd.get("amount")).replace(",", "."), a.dec), to = String(fd.get("to")).trim();
+  if (!to) throw new Error("Name the pocket to move into."); remember(to);
+  return vSend({ address: V.cfg.vault, abi: VABI, functionName: "move", args: [a.addr, amount, fd.get("pocket"), pocketId(to)] }, "move");
+}
+async function vLock(fd) {
+  const until = Math.floor(new Date(String(fd.get("until"))).getTime() / 1000);
+  if (!(until > Date.now() / 1000)) throw new Error("Pick a time in the future.");
+  return vSend({ address: V.cfg.vault, abi: VABI, functionName: "lock", args: [fd.get("pocket"), BigInt(until)] }, "lock");
+}
+async function vFaucet(addr) { return vSend({ address: addr, abi: FAUCET_ABI, functionName: "faucet" }, `faucet (${vAsset(addr)?.sym || "token"})`); }
+function vPocketsUI() {
+  const L = labels(), ids = [...new Set([...V.pockets.map(p => p.id), ...Object.keys(L)])];
+  const opts = ids.map(id => `<option value="${id}">${esc(L[id] || short(id))}</option>`).join("");
+  document.querySelectorAll(".v-pockets").forEach(sel => { const v = sel.value; sel.innerHTML = opts; if (v) sel.value = v; });
+  $("v-labels").innerHTML = Object.values(L).map(l => `<option value="${esc(l)}">`).join("");
+}
+async function vLoad() {
+  if (!V.account || !V.cfg) return;
+  const L = labels(), from = BigInt(V.cfg.block || 0);
+  try {
+    const logs = await V.pub.getLogs({ address: V.cfg.vault, events: VABI.filter(x => x.type === "event"), args: { owner: V.account }, fromBlock: from, toBlock: "latest" });
+    const ids = new Set(Object.keys(L));
+    for (const l of logs) { if (l.args.pocket) ids.add(l.args.pocket); if (l.args.from) { ids.add(l.args.from); ids.add(l.args.to); } }
+    const assets = vAssets(), pairs = [...ids].flatMap(id => assets.map(a => [id, a]));
+    const [bals, locks] = await Promise.all([
+      Promise.all(pairs.map(([id, a]) => V.pub.readContract({ address: V.cfg.vault, abi: VABI, functionName: "balanceOf", args: [V.account, id, a.addr] }))),
+      Promise.all([...ids].map(id => V.pub.readContract({ address: V.cfg.vault, abi: VABI, functionName: "lockedUntil", args: [V.account, id] })))]);
+    const lockOf = Object.fromEntries([...ids].map((id, i) => [id, Number(locks[i])]));
+    const rows = pairs.map(([id, a], i) => ({ id, a, bal: bals[i] })).filter(r => r.bal > 0n);
+    V.pockets = [...new Set(rows.map(r => r.id))].map(id => ({ id }));
+    $("v-n").textContent = V.pockets.length;
+    $("v-eth").textContent = fmt(formatUnits(rows.filter(r => r.a.sym === "ETH").reduce((t, r) => t + r.bal, 0n), 18), 6);
+    const now = Date.now() / 1000;
+    $("v-rows").innerHTML = rows.length ? rows.map(r => `<tr><td><b>${esc(L[r.id] || short(r.id))}</b></td><td>${esc(r.a.sym)}</td><td class="num">${fmt(formatUnits(r.bal, r.a.dec), 6)}</td><td class="m">${lockOf[r.id] > now ? "🔒 " + new Date(lockOf[r.id] * 1000).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "unlocked"}</td></tr>`).join("")
+      : `<tr><td colspan="4" class="empty">No balance in the vault yet. Get test ETH from the faucet, then deposit.</td></tr>`;
+    const sym = a => vAsset(a)?.sym || short(a), dec = a => vAsset(a)?.dec ?? 18;
+    $("v-act").innerHTML = logs.length ? [...logs].reverse().slice(0, 25).map(l => {
+      const x = l.args, name = { Deposited: "Deposit", Withdrawn: "Withdraw", Moved: "Move", Locked: "Lock" }[l.eventName];
+      const pocket = l.eventName === "Moved" ? `${esc(L[x.from] || short(x.from))} → ${esc(L[x.to] || short(x.to))}` : esc(L[x.pocket] || short(x.pocket));
+      const amount = x.amount != null ? `${fmt(formatUnits(x.amount, dec(x.token)), 6)} ${esc(sym(x.token))}` : x.until ? new Date(Number(x.until) * 1000).toLocaleDateString("en-GB") : "-";
+      return `<tr><td><b>${name}</b></td><td>${pocket}</td><td class="num">${amount}</td><td>${x.to && l.eventName === "Withdrawn" ? `<a class="addr" href="${TEXP}/address/${x.to}" target="_blank" rel="noopener">${short(x.to)}</a>` : "-"}</td><td><a class="addr" href="${TEXP}/tx/${l.transactionHash}" target="_blank" rel="noopener">${short(l.transactionHash)}</a></td></tr>`;
+    }).join("") : `<tr><td colspan="5" class="empty">Nothing yet.</td></tr>`;
+    vPocketsUI();
+  } catch (e) { vMsg("The testnet did not answer. Try again in a moment.", "err"); }
+}
+
+document.querySelectorAll("[data-lf]").forEach(b => b.onclick = () => { LF = b.dataset.lf; document.querySelectorAll("[data-lf]").forEach(x => x.setAttribute("aria-pressed", x === b)); renderLaunches(); });
+// new launches and curve fills, while someone is looking at them
+setInterval(() => { if (document.hidden) return; if (!$("pane-launches").hidden || (S.cat === "pons" && !$("pane-swap").hidden)) launchesData().catch(() => {}); }, 20000);
+</script>
+</body>
+</html>

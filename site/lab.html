@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Masque Position Lab</title>
+<meta name="description" content="Replay a leveraged stock-token position on 30 days of real prices. Your liquidation price becomes a pane of glass, and you choose who can see it.">
+<meta property="og:title" content="Masque Position Lab">
+<meta property="og:description" content="Your liquidation price is public. Watch what that means.">
+<meta name="theme-color" content="#0f0e0d">
+<link rel="icon" type="image/svg+xml" href="brand/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Schibsted+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Position Lab v2. Layout: one full-bleed stage. The price path is a brass ribbon in space; the liquidation price is a
+   pane of glass laid across it. Bold moment: public = the pane glows coral for everyone; masked = the glass mask rides
+   the position and the pane frosts over. Type stays small next to the object; controls dock at the bottom of the stage. */
+:root{
+  --velvet:#0f0e0d; --velvet-2:#161513; --velvet-3:#1e1c19;
+  --ivory:#ede8e1; --ivory-2:#a39d94; --ivory-3:#6b665f;
+  --brass:#d6a957; --brass-2:#ecc982; --brass-dim:rgba(201,164,92,.16);
+  --line:rgba(241,233,226,.1); --line-2:rgba(241,233,226,.2);
+  --up:#8fc7a0; --down:#ec8f7e;
+  --glass:rgba(27,19,26,.58);
+  --f-display:"Schibsted Grotesk",ui-sans-serif,system-ui,sans-serif;
+  --f-body:"Schibsted Grotesk",ui-sans-serif,system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  --ease:cubic-bezier(.23,1,.32,1);
+  --gut:max(20px,env(safe-area-inset-left,0px));
+  color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0}
+html{background:var(--velvet);color:var(--ivory);font:400 16px/1.55 var(--f-body);-webkit-font-smoothing:antialiased}
+html,body{overflow-x:clip}
+body{min-height:100dvh}
+a{color:inherit}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--brass);outline-offset:3px;border-radius:6px}
+.skip{position:absolute;left:-999px;top:8px;background:var(--brass);color:var(--velvet);padding:8px 14px;border-radius:6px;z-index:30}
+.skip:focus{left:12px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:40;opacity:.06;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+/* stage */
+.stage{position:relative;height:max(640px,min(100svh,920px));overflow:hidden;isolation:isolate;
+  background:radial-gradient(55% 45% at 62% 46%,rgba(201,164,92,.13),transparent 70%),radial-gradient(45% 40% at 8% 4%,rgba(120,40,80,.3),transparent 70%),var(--velvet)}
+.ghost{position:absolute;right:-2vw;bottom:8%;z-index:-1;font:700 clamp(9rem,26vw,24rem)/.8 var(--f-display);letter-spacing:-.07em;color:transparent;-webkit-text-stroke:1px rgba(241,233,226,.06);pointer-events:none;user-select:none}
+#gl{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0;cursor:crosshair;touch-action:pan-y}
+.nogl{position:absolute;inset:0;display:grid;place-items:center;color:var(--ivory-3);font-size:.9rem;padding:0 24px;text-align:center}
+.gl-on .nogl{display:none}
+
+header{position:absolute;inset:0 0 auto;z-index:4;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px max(20px,env(safe-area-inset-right,0px)) 0 var(--gut);pointer-events:none}
+header>*{pointer-events:auto}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font:700 1.05rem var(--f-display);letter-spacing:-.03em}
+.brand svg{width:30px;height:30px}
+.chain{display:flex;align-items:center;gap:8px;font:400 .78rem var(--f-mono);color:var(--ivory-2);padding:7px 12px;border-radius:999px;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.chain i{width:7px;height:7px;border-radius:50%;background:var(--ivory-3);transition:background-color .3s,box-shadow .3s}
+.chain.live i{background:var(--up);box-shadow:0 0 0 4px rgba(143,199,160,.14)}
+.back{font-size:.88rem;color:var(--ivory-2);text-decoration:none;transition:color .2s}
+.back:hover{color:var(--ivory)}
+
+.copy{position:absolute;z-index:3;left:var(--gut);top:96px;max-width:min(470px,40vw);pointer-events:none}
+h1{font:600 clamp(2.1rem,3.8vw,3.5rem)/.96 var(--f-display);letter-spacing:-.05em;text-wrap:balance}
+h1 em{font-style:normal;color:var(--brass-2);transition:color .4s}
+body.masked h1 em{color:var(--ivory-2)}
+.copy p{margin-top:14px;color:var(--ivory-2);font-size:.95rem;max-width:40ch;text-wrap:pretty}
+
+.read{position:absolute;z-index:3;right:max(20px,env(safe-area-inset-right,0px));top:96px;width:250px;padding:18px 20px;border-radius:18px;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:inset 0 1px 0 rgba(241,233,226,.06),0 24px 60px -30px rgba(0,0,0,.8)}
+.read small{display:block;font-size:.74rem;color:var(--ivory-3)}
+.pnl{font:500 2.1rem/1.1 var(--f-mono);font-variant-numeric:tabular-nums;margin:2px 0 14px;transition:color .3s}
+.pos{color:var(--up)} .neg{color:var(--down)}
+.read dl{display:grid;grid-template-columns:auto 1fr;gap:7px 12px;font-size:.84rem}
+.read dt{color:var(--ivory-3)}
+.read dd{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.read .ref{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);display:flex;justify-content:space-between;font-size:.8rem;color:var(--ivory-2)}
+
+/* projected tags */
+.tags{position:absolute;inset:0;z-index:2;pointer-events:none}
+.tag{position:absolute;left:0;top:0;white-space:nowrap;font:500 .74rem var(--f-mono);padding:5px 9px;border-radius:7px;background:rgba(18,12,17,.72);border:1px solid var(--line-2);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:none}
+.gl-on .tag{display:block}
+.tag.liq{border-color:rgba(236,143,126,.6);color:var(--down)}
+body.masked .tag.liq{border-color:rgba(201,164,92,.6);color:var(--brass-2)}
+
+.boom{position:absolute;left:50%;top:50%;z-index:3;transform:translate(-50%,-50%) scale(.94);text-align:center;visibility:hidden;pointer-events:none;transition:transform .35s var(--ease)}
+.boom.on{visibility:visible;transform:translate(-50%,-50%) scale(1)}
+.boom b{display:block;font:700 clamp(2.6rem,6vw,4.8rem)/1 var(--f-display);letter-spacing:-.05em;color:var(--down);text-shadow:0 10px 40px rgba(236,143,126,.35)}
+.boom span{display:block;margin-top:8px;font-size:.9rem;color:var(--ivory-2);max-width:36ch;margin-inline:auto}
+
+/* the dock */
+.dock{position:absolute;z-index:4;left:50%;bottom:22px;transform:translateX(-50%);width:min(1200px,calc(100% - 40px));display:flex;align-items:center;gap:14px;padding:10px;border-radius:20px;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:inset 0 1px 0 rgba(241,233,226,.06),0 30px 70px -30px rgba(0,0,0,.9)}
+.grp{display:flex;align-items:center;flex-wrap:nowrap;gap:4px;padding:3px;border-radius:13px;background:rgba(241,233,226,.04)}
+.chip{border:0;background:transparent;padding:8px 8px;border-radius:10px;font:500 .8rem var(--f-mono);color:var(--ivory-2);cursor:pointer;transition:background-color .2s,color .2s,transform .12s}
+.chip:hover{color:var(--ivory)}
+.chip:active{transform:scale(.97)}
+.chip[aria-pressed="true"]{background:var(--ivory);color:var(--velvet)}
+.side .chip,.mask .chip{font-family:var(--f-body);font-size:.85rem;padding:8px 14px}
+.side .chip.l[aria-pressed="true"]{background:var(--up)}
+.side .chip.s[aria-pressed="true"]{background:var(--down)}
+.mask .chip.m[aria-pressed="true"]{background:var(--brass);color:var(--velvet)}
+.lev{display:flex;align-items:center;gap:10px;min-width:150px;flex:1}
+.lev label{font-size:.78rem;color:var(--ivory-3)}
+.lev input{flex:1;accent-color:var(--brass);min-width:60px}
+.lev output{font:500 .9rem var(--f-mono);min-width:2.6ch}
+.money{display:flex;align-items:center;gap:2px;padding:0 10px;height:38px;border-radius:11px;border:1px solid var(--line);transition:border-color .2s}
+.money:focus-within{border-color:var(--brass)}
+.money span{color:var(--ivory-3);font-size:.85rem}
+.money input{width:76px;background:transparent;border:0;color:var(--ivory);font:500 .9rem var(--f-mono);outline:none}
+.play{width:44px;height:44px;flex:none;border-radius:13px;border:0;background:var(--brass);color:var(--velvet);cursor:pointer;display:grid;place-items:center;transition:background-color .2s,transform .12s}
+.play:hover{background:var(--brass-2)}
+.play:active{transform:scale(.96)}
+.play svg{width:15px;height:15px}
+.scrubline{position:absolute;left:18px;right:18px;top:-1px;height:2px;border-radius:2px;background:rgba(241,233,226,.08);overflow:hidden}
+.scrubline i{display:block;height:100%;width:0;background:var(--brass)}
+
+/* below the stage: what the chain shows */
+.below{max-width:1180px;margin:0 auto;padding:110px max(20px,env(safe-area-inset-right,0px)) 40px var(--gut)}
+.ledger{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:56px;align-items:start}
+h2{font:600 clamp(1.9rem,3.6vw,3rem)/.98 var(--f-display);letter-spacing:-.045em;text-wrap:balance;max-width:16ch}
+.ledger p{color:var(--ivory-2);margin-top:16px;max-width:44ch;text-wrap:pretty}
+.sheet{border:1px solid var(--line);border-radius:20px;overflow:hidden;background:linear-gradient(180deg,var(--velvet-3),var(--velvet-2));box-shadow:0 30px 70px -40px rgba(0,0,0,.8)}
+.sheet .head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:15px 20px;border-bottom:1px solid var(--line);font-size:.86rem;color:var(--ivory-2)}
+.sheet .head b{color:var(--ivory);font:500 .84rem var(--f-mono)}
+.sheet dl{display:grid;grid-template-columns:auto 1fr}
+.sheet dt,.sheet dd{padding:12px 20px;border-bottom:1px solid var(--line)}
+.sheet dt{color:var(--ivory-3);font-size:.88rem}
+.sheet dd{position:relative;text-align:right;font:500 .92rem var(--f-mono);font-variant-numeric:tabular-nums}
+.sheet dl>*:nth-last-child(-n+2){border-bottom:0}
+.bar{display:inline-block;height:.95em;vertical-align:-2px;border-radius:3px;background:linear-gradient(90deg,var(--brass),var(--brass-2));width:0;transition:width .5s var(--ease)}
+body.masked .sheet dd .v{display:none}
+body.masked .sheet dd .bar{width:var(--w,7ch)}
+.sheet .foot{padding:13px 20px;font-size:.84rem;color:var(--down);border-top:1px solid var(--line);transition:color .3s}
+body.masked .sheet .foot{color:var(--brass-2)}
+.fine{margin-top:80px;padding-top:18px;border-top:1px solid var(--line);font-size:.8rem;color:var(--ivory-3);display:flex;flex-wrap:wrap;gap:8px 28px}
+
+@media (max-width:1180px){
+  .dock{flex-wrap:wrap;justify-content:center}
+}
+@media (max-width:980px){
+  .copy{max-width:min(420px,60vw)}
+  .read{width:210px;padding:14px 16px}
+  .pnl{font-size:1.6rem}
+  .dock{flex-wrap:wrap;justify-content:center}
+}
+@media (max-width:700px){
+  .stage{height:auto;min-height:0;display:flex;flex-direction:column;padding-top:76px}
+  header{padding-top:16px}
+  .back,.chain span{display:none}
+  .copy{position:relative;left:auto;top:auto;max-width:none;padding:0 20px}
+  .canvas-wrap{position:relative;height:min(108vw,460px);margin-top:4px}
+  .read{position:relative;right:auto;top:auto;width:auto;margin:0 16px}
+  .read dl{grid-template-columns:auto 1fr auto 1fr}
+  .dock{position:relative;left:auto;bottom:auto;transform:none;width:auto;margin:12px 16px 20px}
+  #tickers{flex-wrap:wrap;justify-content:center}
+  .ledger{grid-template-columns:1fr;gap:28px}
+  .below{padding-top:64px}
+  .ghost{bottom:auto;top:30%}
+}
+@media (min-width:701px){.canvas-wrap{position:absolute;inset:0}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+</head>
+<body>
+<a class="skip" href="#dock">Skip to the controls</a>
+<section class="stage" aria-label="Position lab">
+  <div class="ghost" id="ghost" aria-hidden="true">TSLA</div>
+  <header>
+    <a class="brand" href="./" aria-label="Masque home">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M3 11c4-3 8-3 13 0 5-3 9-3 13 0-1 8-5 12-9 12-2 0-3-2-4-4-1 2-2 4-4 4-4 0-8-4-9-12z" fill="#c9a45c"/><ellipse cx="10" cy="14.5" rx="2.6" ry="1.7" fill="#0f0e0d"/><ellipse cx="22" cy="14.5" rx="2.6" ry="1.7" fill="#0f0e0d"/></svg>
+      Masque
+    </a>
+    <p class="chain mono" id="chain"><i></i><span>Robinhood Chain</span> <b id="block">connecting</b></p>
+    <a class="back" href="trade.html">Trade</a>
+  </header>
+
+  <div class="copy">
+    <h1>Your liquidation price is a <em>pane of glass</em> everyone can see.</h1>
+    <p>Thirty days of real prices replay against your position. Click the ribbon to enter at any hour. Then put the mask on.</p>
+  </div>
+
+  <div class="canvas-wrap">
+    <canvas id="gl" aria-label="3D replay of the position: price ribbon, entry line and liquidation pane"></canvas>
+    <p class="nogl">This replay needs WebGL. The numbers on the right still update.</p>
+    <div class="tags" aria-hidden="true">
+      <span class="tag" id="tEntry">entry</span>
+      <span class="tag liq" id="tLiq">liquidation</span>
+      <span class="tag" id="tNow">now</span>
+    </div>
+    <div class="boom" id="boom" role="status"><b>Liquidated.</b><span id="boomTxt"></span></div>
+  </div>
+
+  <aside class="read" aria-live="polite">
+    <small>Profit and loss</small>
+    <p class="pnl" id="pnl">$0.00</p>
+    <dl>
+      <dt>Entry</dt><dd id="entry">-</dd>
+      <dt>Liquidation</dt><dd id="liq">-</dd>
+      <dt>Distance</dt><dd id="dist">-</dd>
+      <dt>Size</dt><dd id="size">-</dd>
+    </dl>
+    <p class="ref"><span>Chainlink now</span><span class="mono" id="ref">-</span></p>
+  </aside>
+
+  <div class="dock" id="dock">
+    <div class="scrubline" aria-hidden="true"><i id="prog"></i></div>
+    <button class="play" id="play" aria-label="Play replay"><svg viewBox="0 0 16 16" id="playIco"><path d="M4 2l10 6-10 6z" fill="currentColor"/></svg></button>
+    <div class="grp" id="tickers" role="group" aria-label="Stock token"></div>
+    <div class="grp side" role="group" aria-label="Side"><button class="chip l" data-side="1" aria-pressed="true">Long</button><button class="chip s" data-side="-1" aria-pressed="false">Short</button></div>
+    <div class="lev"><label for="lev">Lev</label><input type="range" id="lev" min="1" max="10" value="4"><output id="levOut" class="mono">4×</output></div>
+    <label class="money"><span>$</span><input id="margin" inputmode="decimal" value="1000" aria-label="Margin in dollars"></label>
+    <div class="grp mask" role="group" aria-label="Wallet"><button class="chip p" data-mask="0" aria-pressed="true">Public</button><button class="chip m" data-mask="1" aria-pressed="false">Masked</button></div>
+  </div>
+</section>
+
+<main class="below">
+  <section class="ledger">
+    <div>
+      <h2>What the chain shows about this position</h2>
+      <p>A public wallet publishes its size, entry and the price where it breaks. Anyone on the other side knows exactly how far price has to travel. Masked, the record holds a one-time address and nothing to aim at.</p>
+    </div>
+    <div class="sheet">
+      <div class="head"><span>Visible to anyone</span><b id="who">0x7a3f…c91e</b></div>
+      <dl>
+        <dt>Stock token</dt><dd><span class="v" id="lTk">-</span><span class="bar" style="--w:5ch"></span></dd>
+        <dt>Side and leverage</dt><dd><span class="v" id="lSide">-</span><span class="bar" style="--w:8ch"></span></dd>
+        <dt>Position size</dt><dd><span class="v" id="lSize">-</span><span class="bar" style="--w:9ch"></span></dd>
+        <dt>Entry price</dt><dd><span class="v" id="lEntry">-</span><span class="bar" style="--w:7ch"></span></dd>
+        <dt>Liquidation price</dt><dd><span class="v" id="lLiq">-</span><span class="bar" style="--w:7ch"></span></dd>
+      </dl>
+      <p class="foot" id="foot">Your liquidation price is on the record. Anyone can trade toward it.</p>
+    </div>
+  </section>
+  <footer class="fine">
+    <span>Simulation for learning. Masque positions are not live yet, and nothing here is a trade.</span>
+    <span id="src">Prices: hourly closes during US market hours.</span>
+    <span>Not affiliated with Robinhood. Not financial advice.</span>
+  </footer>
+</main>
+
+<script type="module">
+import * as THREE from "three";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+
+const $ = id => document.getElementById(id);
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const RPC = "https://robinhood-rpc.publicnode.com", MM = .02;
+const S = { data: null, tk: 0, side: 1, lev: 4, margin: 1000, start: 0, f: 0, playing: false, dead: -1, masked: false };
+const usd = (v, d = 2) => (v < 0 ? "-$" : "$") + Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+const when = t => new Date(t * 1000).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric" });
+
+/* ---------- live chain ---------- */
+const rpc = (method, params) => fetch(RPC, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) }).then(r => r.json()).then(j => j.result);
+async function tickBlock() {
+  try { const b = parseInt(await rpc("eth_blockNumber", []), 16); if (!b) throw 0; $("block").textContent = "block " + b.toLocaleString("en-US"); $("chain").classList.add("live"); }
+  catch { $("block").textContent = "offline"; $("chain").classList.remove("live"); }
+}
+const dec = {};
+async function readRef() {
+  const s = S.data.stocks[S.tk]; $("ref").textContent = "…";
+  try {
+    dec[s.feed] ??= parseInt(await rpc("eth_call", [{ to: s.feed, data: "0x313ce567" }, "latest"]), 16);
+    const r = await rpc("eth_call", [{ to: s.feed, data: "0xfeaf968c" }, "latest"]);
+    if (S.data.stocks[S.tk] === s) $("ref").textContent = usd(Number(BigInt("0x" + r.slice(66, 130))) / 10 ** dec[s.feed]);
+  } catch { $("ref").textContent = "unavailable"; }
+}
+
+/* ---------- position math ---------- */
+const P = () => S.data.stocks[S.tk].pts;
+const E = () => P()[S.start][1];
+const L = () => E() * (1 - S.side * (1 / S.lev - MM));
+const pnlAt = k => S.side * (P()[k][1] / E() - 1) * S.margin * S.lev;
+function death() { const l = L(); for (let k = S.start; k < P().length; k++) { const p = P()[k][1]; if (S.side > 0 ? p <= l : p >= l) return k; } return -1; }
+
+/* ---------- scene ---------- */
+const cv = $("gl");
+let renderer = null;
+try { renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true }); } catch {}
+const gl = !!renderer;
+if (gl) document.documentElement.classList.add("gl-on");
+const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(30, 1, .1, 100);
+const world = new THREE.Group(); scene.add(world);
+const W = 12, Hh = 3.4;                     // ribbon spans x -6..6, price maps to y -1.7..1.7
+const SEG = 900, RAD = 10;
+let curve, ghostMesh, trailMesh, us, lo, hi;
+const mats = {};
+const pane = new THREE.Group(); world.add(pane);
+let paneMat, paneEdge, entryLine, bead, mask;
+if (gl) {
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), .04).texture;
+  const key = new THREE.DirectionalLight(0xffe2b0, 2.4); key.position.set(3, 7, 5); key.castShadow = true; key.shadow.mapSize.set(1024, 1024);
+  Object.assign(key.shadow.camera, { left: -8, right: 8, top: 6, bottom: -6 }); scene.add(key);
+  const rim = new THREE.DirectionalLight(0xb03a6e, 3.2); rim.position.set(-7, -1, -5); scene.add(rim);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 20), new THREE.ShadowMaterial({ opacity: .35 }));
+  floor.rotation.x = -Math.PI / 2; floor.position.y = -2.45; floor.receiveShadow = true; world.add(floor);
+  mats.ghost = new THREE.MeshPhysicalMaterial({ color: 0xf1e9e2, emissive: 0x3a2c30, metalness: .3, roughness: .3, transparent: true, opacity: .42 });
+  mats.trail = new THREE.MeshPhysicalMaterial({ color: 0xd6a957, metalness: 1, roughness: .22, clearcoat: 1 });
+
+  // the liquidation pane: a sheet of glass with a fine grid etched in, laid flat across the ribbon
+  const c = document.createElement("canvas"); c.width = 1024; c.height = 256; const g = c.getContext("2d");
+  g.strokeStyle = "rgba(255,255,255,.55)"; g.lineWidth = 1;
+  for (let x = 0; x <= 1024; x += 32) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 256); g.stroke(); }
+  for (let y = 0; y <= 256; y += 32) { g.beginPath(); g.moveTo(0, y); g.lineTo(1024, y); g.stroke(); }
+  const grid = new THREE.CanvasTexture(c); grid.colorSpace = THREE.SRGBColorSpace;
+  paneMat = new THREE.MeshPhysicalMaterial({ color: 0xec8f7e, emissive: 0xec8f7e, emissiveIntensity: .35, emissiveMap: grid, roughness: .25, transmission: .55, thickness: .2, transparent: true, opacity: .55, side: THREE.DoubleSide, depthWrite: false });
+  const pg = new THREE.PlaneGeometry(W + .8, 2.4);
+  const sheet = new THREE.Mesh(pg, paneMat); sheet.rotation.x = -Math.PI / 2; pane.add(sheet);
+  paneEdge = new THREE.LineSegments(new THREE.EdgesGeometry(pg), new THREE.LineBasicMaterial({ color: 0xec8f7e, transparent: true, opacity: .9 }));
+  paneEdge.rotation.x = -Math.PI / 2; pane.add(paneEdge);
+
+  entryLine = new THREE.Mesh(new THREE.BoxGeometry(1, .012, .012), new THREE.MeshBasicMaterial({ color: 0xf1e9e2, transparent: true, opacity: .55 }));
+  world.add(entryLine);
+  bead = new THREE.Mesh(new THREE.SphereGeometry(.13, 48, 32), new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: 1, roughness: .12 }));
+  bead.castShadow = true; world.add(bead);
+
+  // the Masque mask (the favicon outline), frosted glass with a brass edge; it rides above the position when masked
+  const sh = new THREE.Shape(), k = .2, M = (x, y) => [(x - 16) * k, -(y - 15) * k];
+  sh.moveTo(...M(3, 11)); sh.bezierCurveTo(...M(7, 8), ...M(11, 8), ...M(16, 11)); sh.bezierCurveTo(...M(21, 8), ...M(25, 8), ...M(29, 11));
+  sh.bezierCurveTo(...M(28, 19), ...M(24, 23), ...M(20, 23)); sh.bezierCurveTo(...M(18, 23), ...M(17, 21), ...M(16, 19));
+  sh.bezierCurveTo(...M(15, 21), ...M(14, 23), ...M(12, 23)); sh.bezierCurveTo(...M(8, 23), ...M(4, 19), ...M(3, 11));
+  for (const ex of [10.5, 21.5]) { const h = new THREE.Path(), [cx, cy] = M(ex, 14.5); h.absellipse(cx, cy, 3 * k, 2 * k, 0, Math.PI * 2, true); sh.holes.push(h); }
+  const mg = new THREE.ExtrudeGeometry(sh, { depth: .14, bevelEnabled: true, bevelThickness: .07, bevelSize: .06, bevelSegments: 5, curveSegments: 40 }); mg.center();
+  mask = new THREE.Mesh(mg, new THREE.MeshPhysicalMaterial({ color: 0xfff1d6, transmission: 1, roughness: .38, thickness: .9, ior: 1.45, attenuationColor: new THREE.Color(0xd6a957), attenuationDistance: 3, clearcoat: 1, clearcoatRoughness: .15 }));
+  const edge = new THREE.Mesh(mg, new THREE.MeshPhysicalMaterial({ color: 0xd6a957, metalness: 1, roughness: .25, side: THREE.BackSide })); edge.scale.setScalar(1.02); mask.add(edge);
+  mask.castShadow = true; mask.scale.setScalar(.42); mask.position.set(5, 6.5, 1); mask.visible = false; world.add(mask);
+}
+
+const yOf = p => -Hh / 2 + Hh * (p - lo) / (hi - lo);
+function build() {
+  const pts = P(), l = L();
+  lo = Math.min(...pts.map(p => p[1]), l); hi = Math.max(...pts.map(p => p[1]), l);
+  const m = (hi - lo) * .06; lo -= m; hi += m;
+  if (!gl) return;
+  const v = pts.map((p, k) => new THREE.Vector3(-W / 2 + W * k / (pts.length - 1), yOf(p[1]), 0));
+  curve = new THREE.CatmullRomCurve3(v, false, "catmullrom", .2);
+  const len = curve.getLengths(pts.length - 1); us = len.map(x => x / len[len.length - 1]);
+  for (const mesh of [ghostMesh, trailMesh]) if (mesh) { world.remove(mesh); mesh.geometry.dispose(); }
+  ghostMesh = new THREE.Mesh(new THREE.TubeGeometry(curve, SEG, .045, RAD, false), mats.ghost); world.add(ghostMesh);
+  trailMesh = new THREE.Mesh(new THREE.TubeGeometry(curve, SEG, .06, RAD, false), mats.trail); trailMesh.castShadow = true; world.add(trailMesh);
+}
+function placeLevels() {
+  if (!gl) return;
+  const ey = yOf(E()), sx = -W / 2 + W * S.start / (P().length - 1);
+  entryLine.scale.x = W / 2 - sx + .3; entryLine.position.set((sx + W / 2 + .3) / 2, ey, 0);
+  pane.userData.y = yOf(L());
+}
+
+/* ---------- frame ---------- */
+const v3 = new THREE.Vector3(), mouse = { x: 0, y: 0 }, cA = new THREE.Color(0xec8f7e), cB = new THREE.Color(0xd6a957);
+let wide = true, baseX = 0, camX = 0, paneY = 0, maskT = 0, shake = 0, beadFall = null, lastT = performance.now(), running = true;
+const tagAt = (el, p, dx, dy) => {
+  const r = cv.getBoundingClientRect(); v3.copy(p).applyMatrix4(world.matrixWorld).project(cam);
+  const x = (v3.x * .5 + .5) * r.width + dx, y = (-v3.y * .5 + .5) * r.height + dy, w = el.offsetWidth, h = el.offsetHeight;
+  el.style.transform = `translate(${Math.max(6, Math.min(x, r.width - w - 6))}px,${Math.max(6, Math.min(y - h, r.height - h - 6))}px)`;
+};
+function frame(t) {
+  requestAnimationFrame(frame);
+  const dt = Math.min((t - lastT) / 1000, .05); lastT = t;
+  if (!S.data) return;
+  const n = P().length - 1;
+  if (S.playing) {
+    S.f += dt * 14;
+    const stopAt = S.dead >= 0 ? S.dead : n;
+    if (S.f >= stopAt) { S.f = stopAt; stop(); if (S.dead >= 0) die(); }
+    ui();
+  }
+  if (!gl || !running) return;
+  const k0 = Math.floor(S.f), fr = S.f - k0, k1 = Math.min(k0 + 1, n);
+  const u = us[k0] + (us[k1] - us[k0]) * fr;
+  // the trail tube shows only start..now: draw range over the tube's index buffer (RAD * 6 indices per segment)
+  const segA = Math.floor(us[S.start] * SEG), segB = Math.max(segA, Math.floor(u * SEG));
+  trailMesh.geometry.setDrawRange(segA * RAD * 6, (segB - segA) * RAD * 6);
+  const win = pnlAt(Math.round(S.f)) >= 0;
+  mats.trail.color.set(S.f <= S.start + .01 ? 0xd6a957 : win ? 0x8fc7a0 : 0xec8f7e);
+  mats.trail.emissive.copy(mats.trail.color).multiplyScalar(.18);
+  const at = curve.getPointAt(Math.min(u, 1));
+  if (beadFall) { beadFall.v -= 9.8 * dt; beadFall.y = Math.max(-2.32, beadFall.y + beadFall.v * dt); bead.position.set(at.x, beadFall.y, 0); }
+  else bead.position.copy(at);
+  // the pane eases to the liquidation level; colour and clarity follow public / masked
+  paneY += ((pane.userData.y ?? 0) - paneY) * Math.min(1, dt * 8); pane.position.y = paneY;
+  maskT += ((S.masked ? 1 : 0) - maskT) * Math.min(1, dt * 4);
+  paneMat.color.lerpColors(cA, cB, maskT); paneMat.emissive.copy(paneMat.color);
+  paneMat.emissiveIntensity = (.35 + Math.sin(t / 380) * .08) * (1 - maskT * .8) + shake * 2;
+  paneMat.opacity = .55 - maskT * .4; paneMat.roughness = .25 + maskT * .5;
+  paneEdge.material.color.copy(paneMat.color); paneEdge.material.opacity = .9 - maskT * .6;
+  // the mask flies in and rides just above the bead
+  const e = Math.min(1, dt * 5);
+  mask.position.x += ((S.masked ? bead.position.x : 5) - mask.position.x) * e;
+  mask.position.y += ((S.masked ? bead.position.y + .55 : 6.5) - mask.position.y) * e;
+  mask.position.z += ((S.masked ? .25 : 1) - mask.position.z) * e;
+  mask.rotation.set(-.15 + Math.sin(t / 900) * .05, Math.sin(t / 1300) * .2, Math.sin(t / 1100) * .04);
+  mask.visible = maskT > .01 || S.masked;
+  // three-quarter view that leans toward the pointer
+  shake *= .9;
+  world.rotation.y = -.22 + mouse.x * .16; world.rotation.x = .06 + mouse.y * .05;
+  world.position.set(baseX + (Math.random() - .5) * shake * .2, (Math.random() - .5) * shake * .2, 0);
+  if (!wide) {                                   // phones: a close camera that follows the position along the ribbon
+    v3.copy(bead.position).applyMatrix4(world.matrixWorld);
+    camX += (v3.x - camX) * Math.min(1, dt * 3);
+    cam.position.x = camX; cam.lookAt(camX, 0, 0);
+  }
+  world.updateMatrixWorld();
+  tagAt($("tEntry"), new THREE.Vector3(-W / 2 + W * S.start / n, yOf(E()), 0), -6, -12);
+  tagAt($("tLiq"), new THREE.Vector3(W / 2 + .6, paneY, 1.6), 0, 0);
+  tagAt($("tNow"), bead.position, 14, -14);
+  renderer.render(scene, cam);
+}
+function size() {
+  const r = cv.getBoundingClientRect(), a = r.width / r.height;
+  renderer.setSize(r.width, r.height, false); cam.aspect = a;
+  const half = Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
+  wide = innerWidth > 700;
+  // desktop: the ribbon sits right of the headline; phones: a close follow camera
+  baseX = wide ? 2.4 : 0;
+  const dist = wide ? Math.max(13.5, (W / 2 + 2.6) / (half * a)) : 7.2;
+  cam.position.set(wide ? 0 : camX, wide ? 3.3 : 2.2, dist); cam.lookAt(0, wide ? -.3 : 0, 0); cam.updateProjectionMatrix();
+}
+
+/* ---------- ui ---------- */
+function ui() {
+  const pts = P(), k = Math.round(S.f), dead = S.dead >= 0 && S.f >= S.dead, pnl = dead ? -S.margin : pnlAt(k);
+  $("pnl").textContent = (pnl > 0 ? "+" : "") + usd(pnl); $("pnl").className = "pnl " + (pnl > 0 ? "pos" : pnl < 0 ? "neg" : "");
+  $("entry").textContent = usd(E()); $("liq").textContent = usd(L()); $("size").textContent = usd(S.margin * S.lev, 0);
+  $("dist").textContent = (Math.abs(L() / pts[k][1] - 1) * 100).toFixed(1) + "%";
+  $("prog").style.width = (S.f / (pts.length - 1) * 100) + "%";
+  $("tEntry").textContent = "entry " + E().toFixed(2);
+  $("tLiq").textContent = S.masked ? "liquidation: only you" : "liquidation " + L().toFixed(2);
+  $("tNow").textContent = when(pts[k][0]) + "  " + pts[k][1].toFixed(2);
+  $("lTk").textContent = S.data.stocks[S.tk].ticker; $("lSide").textContent = (S.side > 0 ? "Long " : "Short ") + S.lev + "×";
+  $("lSize").textContent = usd(S.margin * S.lev, 0); $("lEntry").textContent = usd(E()); $("lLiq").textContent = usd(L());
+  $("who").textContent = S.masked ? "vault 0x5e1d…07ab, one-time" : "0x7a3f…c91e";
+  $("foot").textContent = S.masked ? "Size, entry and liquidation price stay in your vault. The chain sees a one-time address and nothing to aim at." : "Your liquidation price is on the record. Anyone can trade toward it.";
+}
+function die() {
+  $("boomTxt").textContent = `${S.data.stocks[S.tk].ticker} touched ${usd(L())} on ${when(P()[S.dead][0])}. The ${usd(S.margin, 0)} margin is gone.`;
+  $("boom").classList.add("on"); shake = reduce ? 0 : 1; beadFall = { y: bead ? bead.position.y : 0, v: 1.2 };
+}
+function reset() {
+  S.f = S.start; S.dead = death(); beadFall = null; $("boom").classList.remove("on");
+  stop(); placeLevels(); ui(); if (!reduce) play();
+}
+function play() {
+  if (S.playing) return;
+  if (S.f >= P().length - 1 || (S.dead >= 0 && S.f >= S.dead)) { S.f = S.start; beadFall = null; $("boom").classList.remove("on"); }
+  if (reduce) { S.f = S.dead >= 0 ? S.dead : P().length - 1; ui(); if (S.dead >= 0) die(); return; }
+  S.playing = true; icon();
+}
+function stop() { S.playing = false; icon(); }
+function icon() { $("playIco").innerHTML = S.playing ? '<path d="M4 2h3v12H4zM9 2h3v12H9z" fill="currentColor"/>' : '<path d="M4 2l10 6-10 6z" fill="currentColor"/>'; $("play").setAttribute("aria-label", S.playing ? "Pause replay" : "Play replay"); }
+function choose(k) { S.tk = k; S.start = 0; $("ghost").textContent = S.data.stocks[k].ticker; build(); reset(); readRef(); }
+
+const press = (sel, btn) => document.querySelectorAll(sel).forEach(b => b.setAttribute("aria-pressed", b === btn));
+document.querySelectorAll("[data-side]").forEach(b => b.onclick = () => { S.side = +b.dataset.side; press("[data-side]", b); build(); reset(); });
+document.querySelectorAll("[data-mask]").forEach(b => b.onclick = () => { S.masked = b.dataset.mask === "1"; document.body.classList.toggle("masked", S.masked); press("[data-mask]", b); ui(); });
+$("lev").oninput = e => { S.lev = +e.target.value; $("levOut").textContent = S.lev + "×"; build(); reset(); };
+$("margin").oninput = e => { const v = parseFloat(e.target.value.replace(/[^0-9.]/g, "")); if (v > 0) { S.margin = Math.min(v, 1e7); ui(); } };
+$("play").onclick = () => S.playing ? stop() : play();
+if (matchMedia("(pointer:fine)").matches) addEventListener("pointermove", e => { mouse.x = e.clientX / innerWidth - .5; mouse.y = e.clientY / innerHeight - .5; });
+// click the ribbon to enter at that hour: cast into the ribbon's plane (z = 0 in world space)
+const ray = new THREE.Raycaster(), nd = new THREE.Vector2(), zPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+cv.addEventListener("click", e => {
+  if (!gl || !S.data) return;
+  const r = cv.getBoundingClientRect(); nd.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
+  ray.setFromCamera(nd, cam); ray.ray.applyMatrix4(world.matrixWorld.clone().invert());
+  if (!ray.ray.intersectPlane(zPlane, v3)) return;
+  const k = Math.round((v3.x + W / 2) / W * (P().length - 1));
+  if (k >= 0 && k < P().length - 2) { S.start = k; build(); reset(); }
+});
+addEventListener("keydown", e => { if (e.code === "Space" && e.target === document.body) { e.preventDefault(); S.playing ? stop() : play(); } });
+new IntersectionObserver(([en]) => { running = en.isIntersecting; }).observe(cv);
+
+fetch("data/prices.json").then(r => r.json()).then(d => {
+  S.data = d;
+  $("src").textContent = `Prices: ${d.source} during US market hours, captured ${new Date(d.made).toLocaleDateString("en-US", { month: "short", day: "numeric" })}. Chainlink now: the feed on Robinhood Chain.`;
+  d.stocks.forEach((s, k) => { const b = document.createElement("button"); b.className = "chip"; b.textContent = s.ticker; b.title = s.name; b.setAttribute("aria-pressed", k === 0); b.onclick = () => { press("#tickers .chip", b); choose(k); }; $("tickers").append(b); });
+  if (gl) { new ResizeObserver(size).observe(cv); size(); }
+  build(); placeLevels(); paneY = pane.userData.y ?? 0; reset(); readRef(); tickBlock(); setInterval(tickBlock, 5000);
+  requestAnimationFrame(frame);
+}).catch(() => { $("boomTxt").textContent = "Price data failed to load."; });
+</script>
+</body>
+</html>

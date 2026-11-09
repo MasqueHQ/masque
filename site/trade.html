@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Masque Trade</title>
+<meta name="description" content="Buy and sell Robinhood Chain stock tokens from your own wallet, routed through Uniswap v3 pools. Masque never holds your funds.">
+<meta property="og:title" content="Masque Trade">
+<meta property="og:description" content="Stock tokens on Robinhood Chain, from your own wallet.">
+<meta name="theme-color" content="#0f0e0d">
+<link rel="icon" type="image/svg+xml" href="brand/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Schibsted+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Masque Trade. Same system as the landing: Schibsted Grotesk set tight, JetBrains Mono for anything from the chain,
+   one brass accent. Layout: a market list on the left (live quotes for every stock token), the ticket on the right.
+   The ticket says exactly which pool, which fee and what the chain will record before you sign. */
+:root{
+  --bg:#0f0e0d; --bg-2:#161513; --bg-3:#1e1c19;
+  --tx:#ede8e1; --tx-2:#a39d94; --tx-3:#6b665f;
+  --line:rgba(237,232,225,.09); --line-2:rgba(237,232,225,.16);
+  --brass:#d6a957; --brass-2:#ecc982; --coral:#e5826f; --green:#8fc79f;
+  --f:"Schibsted Grotesk",ui-sans-serif,system-ui,sans-serif;
+  --m:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  --ease:cubic-bezier(.23,1,.32,1);
+  --gut:max(20px,env(safe-area-inset-left,0px)); --gutr:max(20px,env(safe-area-inset-right,0px));
+  color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--bg);color:var(--tx);font:400 16px/1.5 var(--f);-webkit-font-smoothing:antialiased}
+html,body{overflow-x:clip}
+a{color:inherit}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--brass);outline-offset:2px;border-radius:4px}
+.skip{position:absolute;left:-999px;top:8px;background:var(--brass);color:var(--bg);padding:8px 14px;border-radius:6px;z-index:30}
+.skip:focus{left:12px}
+.m{font-family:var(--m);font-variant-numeric:tabular-nums}
+h1,h2{font-weight:600;letter-spacing:-.045em;text-wrap:balance}
+
+header{border-bottom:1px solid var(--line)}
+header .in{max-width:1280px;margin:0 auto;height:64px;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 var(--gutr) 0 var(--gut)}
+.mark{display:flex;align-items:center;gap:10px;text-decoration:none;font-weight:700;letter-spacing:-.03em}
+.mark svg{width:26px;height:26px}
+.hr{display:flex;align-items:center;gap:18px;font-size:.9rem;color:var(--tx-2)}
+.hr a{text-decoration:none;transition:color .2s}
+.hr a:hover{color:var(--tx)}
+.chain{display:flex;align-items:center;gap:8px;font:400 .74rem var(--m)}
+.chain i{width:7px;height:7px;border-radius:50%;background:var(--tx-3)}
+.chain.live i{background:var(--green);box-shadow:0 0 0 4px rgba(143,199,159,.14)}
+.wallet{height:38px;padding:0 16px;border-radius:8px;border:1px solid var(--line-2);background:transparent;font:500 .86rem var(--f);transition:border-color .2s,background-color .2s}
+.wallet:hover{border-color:var(--brass)}
+.wallet.on{font-family:var(--m);font-size:.8rem}
+@media (max-width:760px){.hr a,.chain span{display:none}}
+
+main{max-width:1280px;margin:0 auto;padding:44px var(--gutr) 80px var(--gut)}
+.top{display:flex;justify-content:space-between;align-items:end;gap:24px;margin-bottom:28px;flex-wrap:wrap}
+h1{font-size:clamp(2.2rem,4.4vw,3.6rem);line-height:.95}
+.top p{color:var(--tx-2);max-width:48ch;font-size:.98rem}
+.grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(340px,1fr);gap:20px;align-items:start}
+@media (max-width:940px){.grid{grid-template-columns:minmax(0,1fr)}.ticket{order:-1;position:static}}
+
+/* market list */
+.market{border:1px solid var(--line);border-radius:12px;background:var(--bg-2);overflow:hidden}
+.mhead,.mrow{display:grid;grid-template-columns:minmax(0,1.5fr) 1fr 1fr .9fr;gap:12px;align-items:center;padding:0 18px}
+.mhead{height:40px;border-bottom:1px solid var(--line);font:500 .72rem var(--m);color:var(--tx-3)}
+.mhead span:not(:first-child),.mrow span:not(:first-child){text-align:right}
+.mrow{width:100%;height:56px;border:0;border-bottom:1px solid var(--line);background:transparent;text-align:left;transition:background-color .15s}
+.mrow:last-child{border-bottom:0}
+.mrow:hover{background:rgba(237,232,225,.03)}
+.mrow[aria-pressed="true"]{background:rgba(214,169,87,.07);box-shadow:inset 2px 0 0 var(--brass)}
+.mrow b{font-weight:600;letter-spacing:-.02em;margin-right:8px}
+.mrow small{color:var(--tx-3);font-size:.82rem}
+.mrow .m{font-size:.86rem}
+.mrow .gap.up{color:var(--green)} .mrow .gap.dn{color:var(--coral)}
+.mrow .q{color:var(--tx-3)}
+@media (max-width:560px){.mhead,.mrow{grid-template-columns:minmax(0,1.3fr) 1fr .8fr}.mhead span:nth-child(3),.mrow span:nth-child(3){display:none}.mrow small{display:none}}
+
+/* ticket */
+.ticket{border:1px solid var(--line);border-radius:12px;background:var(--bg-2);padding:18px;position:sticky;top:16px}
+.side{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:9px;background:rgba(237,232,225,.04);margin-bottom:16px}
+.side button{height:38px;border:0;border-radius:7px;background:transparent;font-weight:600;color:var(--tx-2);transition:background-color .2s,color .2s}
+.side button[aria-pressed="true"].buy{background:var(--green);color:var(--bg)}
+.side button[aria-pressed="true"].sell{background:var(--coral);color:var(--bg)}
+.box{border:1px solid var(--line);border-radius:10px;padding:12px 14px;transition:border-color .2s}
+.box:focus-within{border-color:var(--brass)}
+.box + .box{margin-top:8px}
+.box label,.box .lbl{display:flex;justify-content:space-between;font-size:.78rem;color:var(--tx-3)}
+.box .bal{font-family:var(--m);background:none;border:0;color:var(--tx-3);font-size:.74rem;padding:0}
+.box .bal:hover{color:var(--tx)}
+.row{display:flex;align-items:center;gap:10px;margin-top:6px}
+.row input{flex:1;min-width:0;background:transparent;border:0;outline:none;font:500 1.6rem var(--m);letter-spacing:-.02em}
+.row .out{flex:1;min-width:0;font:500 1.6rem var(--m);letter-spacing:-.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tok{display:flex;gap:4px}
+.tok button,.tok span{height:32px;padding:0 10px;border-radius:7px;border:1px solid var(--line-2);background:transparent;font:500 .8rem var(--m);display:inline-flex;align-items:center}
+.tok button[aria-pressed="true"]{background:var(--tx);color:var(--bg);border-color:var(--tx)}
+.tok span{background:rgba(214,169,87,.12);border-color:rgba(214,169,87,.4);color:var(--brass-2)}
+.details{margin-top:14px;font-size:.84rem}
+.details div{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px dashed var(--line)}
+.details div:last-child{border-bottom:0}
+.details span:first-child{color:var(--tx-3)}
+.details span:last-child{font-family:var(--m);font-size:.8rem;text-align:right}
+.slip{display:flex;gap:4px}
+.slip button{border:1px solid var(--line);background:transparent;border-radius:5px;padding:1px 7px;font:500 .74rem var(--m);color:var(--tx-2)}
+.slip button[aria-pressed="true"]{border-color:var(--brass);color:var(--brass-2)}
+.go{width:100%;height:50px;margin-top:16px;border:0;border-radius:9px;background:var(--brass);color:var(--bg);font-weight:600;font-size:1rem;transition:background-color .2s,transform .12s,opacity .2s}
+.go:hover{background:var(--brass-2)}
+.go:active{transform:scale(.99)}
+.go:disabled{opacity:.45;cursor:default;transform:none}
+.msg{margin-top:12px;font-size:.84rem;color:var(--tx-2);min-height:1.3em;overflow-wrap:anywhere}
+.msg.err{color:var(--coral)} .msg.ok{color:var(--green)}
+.msg a{color:var(--brass-2)}
+.public{margin-top:16px;padding:12px 14px;border-radius:10px;background:rgba(229,130,111,.07);border:1px solid rgba(229,130,111,.25);font-size:.82rem;color:var(--tx-2)}
+.public b{color:var(--coral);font-weight:600}
+
+.fine{margin-top:56px;padding-top:18px;border-top:1px solid var(--line);font-size:.8rem;color:var(--tx-3);display:grid;gap:6px}
+.fine code{font-family:var(--m);font-size:.74rem;overflow-wrap:anywhere}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<a class="skip" href="#ticket">Skip to the trade ticket</a>
+<header>
+  <div class="in">
+    <a class="mark" href="./" aria-label="Masque home">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M3 11c4-3 8-3 13 0 5-3 9-3 13 0-1 8-5 12-9 12-2 0-3-2-4-4-1 2-2 4-4 4-4 0-8-4-9-12z" fill="#d6a957"/><ellipse cx="10.5" cy="14.5" rx="3" ry="2" fill="#0f0e0d"/><ellipse cx="21.5" cy="14.5" rx="3" ry="2" fill="#0f0e0d"/></svg>
+      Masque
+    </a>
+    <div class="hr">
+      <p class="chain" id="chain"><i></i><span id="block">Robinhood Chain</span></p>
+      <a href="lab.html">Position lab</a>
+      <button class="wallet" id="connect" type="button">Connect wallet</button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <div class="top">
+    <h1>Trade stock tokens</h1>
+    <p>Quotes come straight from Uniswap v3 pools on Robinhood Chain. You sign every trade in your own wallet; Masque never holds your funds.</p>
+  </div>
+
+  <div class="grid">
+    <section class="market" aria-label="Stock tokens">
+      <div class="mhead"><span>Token</span><span>Pool price</span><span>Chainlink</span><span>Gap</span></div>
+      <div id="list"></div>
+    </section>
+
+    <section class="ticket" id="ticket" aria-label="Trade ticket">
+      <div class="side" role="group" aria-label="Side"><button class="buy" data-side="buy" aria-pressed="true">Buy</button><button class="sell" data-side="sell" aria-pressed="false">Sell</button></div>
+      <div class="box">
+        <label for="amt"><span id="payL">You pay</span><button class="bal" id="balIn" type="button" title="Use full balance"></button></label>
+        <div class="row"><input id="amt" inputmode="decimal" placeholder="0.0" autocomplete="off"><div class="tok" id="payTok"></div></div>
+      </div>
+      <div class="box">
+        <div class="lbl"><span>You receive, at least</span><span class="m" id="balOut"></span></div>
+        <div class="row"><div class="out m" id="out">0.0</div><div class="tok" id="getTok"></div></div>
+      </div>
+      <div class="details">
+        <div><span>Route</span><span id="route">-</span></div>
+        <div><span>Price</span><span id="px">-</span></div>
+        <div><span>Expected</span><span id="exp">-</span></div>
+        <div><span>Max slippage</span><span class="slip" id="slip"><button data-s="30">0.3%</button><button data-s="50" aria-pressed="true">0.5%</button><button data-s="100">1%</button></span></div>
+      </div>
+      <button class="go" id="go" type="button" disabled>Connect wallet</button>
+      <p class="msg" id="msg" role="status"></p>
+      <p class="public"><b>This trade is public.</b> It goes from your own wallet, so anyone can read it on the explorer, like any Uniswap trade. Private trading comes with the Masque vault, which is not live yet.</p>
+    </section>
+  </div>
+
+  <footer class="fine">
+    <span>Masque runs no contract here. Trades go to the Uniswap v3 SwapRouter02 on Robinhood Chain, checked against the factory of the live pools: <code>0xcaf681a66d020601342297493863e78c959e5cb2</code>. Quotes from QuoterV2 <code>0x33e885ed0ec9bf04ecfb19341582aadcb4c8a9e7</code>.</span>
+    <span>Stock tokens may not be available to everyone, depending on where you live. Check before you trade. Prices move; a quote is not a promise.</span>
+    <span>Not affiliated with Robinhood or Uniswap. Not financial advice.</span>
+  </footer>
+</main>
+
+<script type="module">
+import { createPublicClient, createWalletClient, custom, http, parseAbi, parseUnits, formatUnits, encodeFunctionData, maxUint256 } from "https://cdn.jsdelivr.net/npm/viem@2.21.54/+esm";
+
+const $ = id => document.getElementById(id);
+const CHAIN = { id: 4663, name: "Robinhood Chain", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+  rpcUrls: { default: { http: ["https://rpc.mainnet.chain.robinhood.com"] } }, blockExplorers: { default: { name: "Blockscout", url: "https://robinhoodchain.blockscout.com" } } };
+const ROUTER = "0xcaf681a66d020601342297493863e78c959e5cb2", QUOTER = "0x33e885ed0ec9bf04ecfb19341582aadcb4c8a9e7", FACTORY = "0x1f7d7550b1b028f7571e69a784071f0205fd2efa";
+const WETH = "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73", USDG = "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168";
+const FEES = [100, 500, 3000, 10000];
+// Chainlink reference feeds on Robinhood Chain, one per stock token
+const FEEDS = {"TSLA": "0x4A1166a659A55625345e9515b32adECea5547C38", "NVDA": "0x379EC4f7C378F34a1B47E4F3cbeBCbAC3E8E9F15", "AAPL": "0x6B22A786bAa607d76728168703a39Ea9C99f2cD0", "GOOGL": "0xF6f373a037c30F0e5010d854385cA89185AE638b", "AMZN": "0xD5a1508ceD74c084eBf3cBe853e2C968fB2a651C", "META": "0x7C38C00C30BEe9378381E7B6135d7283356D71b1", "MSFT": "0x45C3C877C15E6BA2EBB19eA114Ea508d14C1Af2E", "AMD": "0x943A29E7ae51A4798823ca9eEd2ed533B2A22C72", "COIN": "0xA3a468A452940B7D6b69991207B508c609a98Ef2", "MSTR": "0x396118bdFB181e6240E74D243F266B061c0edc3D", "PLTR": "0x820ABedFF239034956B7A9d2F0a331f9F075eB4c", "SPY": "0x319724394D3A0e3669269846abE664Cd621f9f6A"};
+const STOCKS = [
+  ["TSLA", "Tesla", "0x322F0929c4625eD5bAd873c95208D54E1c003b2d"], ["NVDA", "NVIDIA", "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC"],
+  ["AAPL", "Apple", "0xaF3D76f1834A1d425780943C99Ea8A608f8a93f9"], ["GOOGL", "Alphabet", "0x2e0847E8910a9732eB3fb1bb4b70a580ADAD4FE3"],
+  ["AMZN", "Amazon", "0x12f190a9F9d7D37a250758b26824B97CE941bF54"], ["META", "Meta", "0xc0D6457C16Cc70d6790Dd43521C899C87ce02f35"],
+  ["MSFT", "Microsoft", "0xe93237C50D904957Cf27E7B1133b510C669c2e74"], ["AMD", "AMD", "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC"],
+  ["COIN", "Coinbase", "0x6330D8C3178a418788dF01a47479c0ce7CCF450b"], ["MSTR", "Strategy", "0xec262a75e413fAfD0dF80480274532C79D42da09"],
+  ["PLTR", "Palantir", "0x894E1EC2D74FFE5AEF8Dc8A9e84686acCB964F2A"], ["SPY", "S&P 500 ETF", "0x117cc2133c37B721F49dE2A7a74833232B3B4C0C"],
+].map(([tk, name, addr]) => ({ tk, name, addr, feed: FEEDS[tk] }));
+
+
+const ERC20 = parseAbi(["function decimals() view returns (uint8)", "function balanceOf(address) view returns (uint256)", "function allowance(address,address) view returns (uint256)", "function approve(address,uint256) returns (bool)"]);
+const QABI = parseAbi(["function quoteExactInputSingle((address tokenIn,address tokenOut,uint256 amountIn,uint24 fee,uint160 sqrtPriceLimitX96) params) returns (uint256 amountOut,uint160 sqrtPriceX96After,uint32 initializedTicksCrossed,uint256 gasEstimate)"]);
+const FABI = parseAbi(["function getPool(address,address,uint24) view returns (address)"]);
+const RABI = parseAbi(["function exactInputSingle((address tokenIn,address tokenOut,uint24 fee,address recipient,uint256 amountIn,uint256 amountOutMinimum,uint160 sqrtPriceLimitX96) params) payable returns (uint256 amountOut)", "function multicall(uint256 deadline,bytes[] data) payable returns (bytes[])"]);
+const FEED = parseAbi(["function latestRoundData() view returns (uint80,int256,uint256,uint256,uint80)", "function decimals() view returns (uint8)"]);
+
+// reads: official RPC first, public mirror as a fallback
+const pubs = [...(location.protocol.startsWith("http") ? [new URL("/rpc", location.href).href] : []), "https://rpc.mainnet.chain.robinhood.com", "https://robinhood-rpc.publicnode.com"].map(u => createPublicClient({ chain: CHAIN, transport: http(u, { batch: true, retryCount: 1 }) }));
+let pub = pubs[0];
+async function read(fn) { try { return await fn(pub); } catch (e) { if (pub !== pubs[1]) { pub = pubs[1]; return fn(pub); } throw e; } }
+
+const S = { side: "buy", stock: STOCKS[0], pay: "ETH", slip: 50, account: null, wallet: null, quote: null, dec: {}, seq: 0 };
+const fmt = (v, d = 4) => Number(v).toLocaleString("en-US", { maximumFractionDigits: d });
+const usd = v => "$" + Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const short = a => a.slice(0, 6) + "…" + a.slice(-4);
+const addrOf = sym => sym === "ETH" ? WETH : sym === "USDG" ? USDG : S.stock.addr;
+async function decimals(a) { if (a === WETH) return 18; if (S.dec[a] != null) return S.dec[a]; S.dec[a] = await read(c => c.readContract({ address: a, abi: ERC20, functionName: "decimals" })); return S.dec[a]; }
+
+/* best quote across fee tiers that have a pool */
+async function best(tokenIn, tokenOut, amountIn) {
+  const pools = await read(c => Promise.all(FEES.map(f => c.readContract({ address: FACTORY, abi: FABI, functionName: "getPool", args: [tokenIn, tokenOut, f] }))));
+  const live = FEES.filter((f, i) => !/^0x0+$/.test(pools[i]));
+  const qs = await Promise.all(live.map(fee => read(c => c.simulateContract({ address: QUOTER, abi: QABI, functionName: "quoteExactInputSingle", args: [{ tokenIn, tokenOut, amountIn, fee, sqrtPriceLimitX96: 0n }] })).then(r => ({ fee, out: r.result[0] })).catch(() => null)));
+  return qs.filter(Boolean).sort((a, b) => (b.out > a.out ? 1 : -1))[0] || null;
+}
+
+/* market list: pool price in USDG per share, plus Chainlink where the token exposes its feed */
+function renderList() {
+  $("list").innerHTML = "";
+  for (const s of STOCKS) {
+    const b = document.createElement("button"); b.className = "mrow"; b.type = "button"; b.setAttribute("aria-pressed", s === S.stock);
+    b.innerHTML = `<span><b>${s.tk}</b><small>${s.name}</small></span><span class="m" id="p-${s.tk}">…</span><span class="m q" id="c-${s.tk}">…</span><span class="m gap" id="g-${s.tk}">…</span>`;
+    b.onclick = () => { S.stock = s; document.querySelectorAll(".mrow").forEach(x => x.setAttribute("aria-pressed", x === b)); tokens(); requote(); };
+    $("list").append(b);
+  }
+}
+async function priceRow(s) {
+  try {
+    const d = await decimals(s.addr), q = await best(s.addr, USDG, parseUnits("1", d));
+    const p = q ? Number(formatUnits(q.out, 6)) : null;
+    $("p-" + s.tk).textContent = p ? usd(p) : "no pool";
+    let ref = null;
+    try {
+      const feed = s.feed;
+      const [r, fd] = await read(c => Promise.all([c.readContract({ address: feed, abi: FEED, functionName: "latestRoundData" }), c.readContract({ address: feed, abi: FEED, functionName: "decimals" })]));
+      ref = Number(r[1]) / 10 ** fd;
+    } catch {}
+    $("c-" + s.tk).textContent = ref ? usd(ref) : "-";
+    const g = $("g-" + s.tk);
+    if (p && ref) { const x = (p / ref - 1) * 100; g.textContent = (x > 0 ? "+" : "") + x.toFixed(2) + "%"; g.className = "m gap " + (x >= 0 ? "up" : "dn"); } else g.textContent = "-";
+  } catch { $("p-" + s.tk).textContent = "error"; }
+}
+
+/* ticket */
+function tokens() {
+  const payOpts = S.side === "buy" ? ["ETH", "USDG"] : [S.stock.tk];
+  if (S.side === "buy" && !payOpts.includes(S.pay)) S.pay = "ETH";
+  if (S.side === "sell") S.pay = S.stock.tk;
+  $("payTok").innerHTML = S.side === "buy" ? payOpts.map(p => `<button type="button" data-pay="${p}" aria-pressed="${p === S.pay}">${p}</button>`).join("") : `<span>${S.stock.tk}</span>`;
+  $("getTok").innerHTML = `<span>${S.side === "buy" ? S.stock.tk : "USDG"}</span>`;
+  $("payTok").querySelectorAll("[data-pay]").forEach(b => b.onclick = () => { S.pay = b.dataset.pay; tokens(); requote(); balances(); });
+  balances();
+}
+const inSym = () => S.side === "buy" ? S.pay : S.stock.tk;
+const outSym = () => S.side === "buy" ? S.stock.tk : "USDG";
+let qt = 0;
+function requote() { clearTimeout(qt); qt = setTimeout(quote, 250); }
+async function quote() {
+  const seq = ++S.seq, v = $("amt").value.replace(",", ".").trim();
+  S.quote = null; $("out").textContent = "0.0"; $("route").textContent = "-"; $("px").textContent = "-"; $("exp").textContent = "-"; ui();
+  if (!(Number(v) > 0)) return;
+  const tIn = addrOf(inSym()), tOut = addrOf(outSym());
+  try {
+    const [dIn, dOut] = await Promise.all([decimals(tIn), decimals(tOut)]);
+    const amountIn = parseUnits(v, dIn);
+    $("route").textContent = "finding pool…";
+    const q = await best(tIn, tOut, amountIn);
+    if (seq !== S.seq) return;
+    if (!q) { $("route").textContent = "no pool for this pair"; return; }
+    const min = q.out * BigInt(10000 - S.slip) / 10000n;
+    S.quote = { tIn, tOut, dIn, dOut, amountIn, fee: q.fee, out: q.out, min };
+    const o = Number(formatUnits(q.out, dOut)), i = Number(v);
+    $("out").textContent = fmt(formatUnits(min, dOut), 6);
+    $("exp").textContent = fmt(o, 6) + " " + outSym();
+    $("route").textContent = `Uniswap v3, ${inSym()} → ${outSym()}, ${(q.fee / 10000).toFixed(2)}% pool`;
+    $("px").textContent = S.side === "buy" ? `1 ${S.stock.tk} = ${fmt(i / o, 6)} ${inSym()}` : `1 ${S.stock.tk} = ${fmt(o / i, 4)} USDG`;
+  } catch (e) { if (seq === S.seq) $("route").textContent = "quote failed"; }
+  ui();
+}
+async function balances() {
+  $("balIn").textContent = ""; $("balOut").textContent = "";
+  if (!S.account) return;
+  try {
+    const get = async sym => sym === "ETH" ? formatUnits(await read(c => c.getBalance({ address: S.account })), 18) : formatUnits(await read(c => c.readContract({ address: addrOf(sym), abi: ERC20, functionName: "balanceOf", args: [S.account] })), await decimals(addrOf(sym)));
+    const [a, b] = await Promise.all([get(inSym()), get(outSym())]);
+    $("balIn").textContent = "balance " + fmt(a, 6); $("balIn").dataset.v = a;
+    $("balOut").textContent = "balance " + fmt(b, 6);
+  } catch {}
+}
+function ui() {
+  const go = $("go");
+  if (!window.ethereum) { go.disabled = true; go.textContent = "No wallet found in this browser"; return; }
+  if (!S.account) { go.disabled = false; go.textContent = "Connect wallet"; return; }
+  if (!S.quote) { go.disabled = true; go.textContent = "Enter an amount"; return; }
+  go.disabled = false; go.textContent = `${S.side === "buy" ? "Buy" : "Sell"} ${S.stock.tk}`;
+}
+const say = (t, cls = "") => { $("msg").className = "msg " + cls; $("msg").innerHTML = t; };
+
+/* wallet */
+async function connect() {
+  if (!window.ethereum) { say("No browser wallet found. Open this page in MetaMask, Rabby, OKX or another wallet browser.", "err"); return; }
+  try {
+    const [a] = await window.ethereum.request({ method: "eth_requestAccounts" });
+    S.account = a; S.wallet = createWalletClient({ chain: CHAIN, transport: custom(window.ethereum), account: a });
+    $("connect").textContent = short(a); $("connect").classList.add("on");
+    await ensureChain(); say(""); balances(); ui();
+  } catch (e) { say(e.shortMessage || e.message || "Connection rejected.", "err"); }
+}
+async function ensureChain() {
+  const id = parseInt(await window.ethereum.request({ method: "eth_chainId" }), 16);
+  if (id === CHAIN.id) return;
+  try { await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x" + CHAIN.id.toString(16) }] }); }
+  catch (e) {
+    if (e.code !== 4902) throw e;
+    await window.ethereum.request({ method: "wallet_addEthereumChain", params: [{ chainId: "0x" + CHAIN.id.toString(16), chainName: CHAIN.name, nativeCurrency: CHAIN.nativeCurrency, rpcUrls: CHAIN.rpcUrls.default.http, blockExplorerUrls: [CHAIN.blockExplorers.default.url] }] });
+  }
+}
+async function trade() {
+  if (!S.account) return connect();
+  const q = S.quote; if (!q) return;
+  const go = $("go"); go.disabled = true;
+  try {
+    await ensureChain();
+    const eth = S.side === "buy" && S.pay === "ETH";
+    if (!eth) {
+      const allow = await read(c => c.readContract({ address: q.tIn, abi: ERC20, functionName: "allowance", args: [S.account, ROUTER] }));
+      if (allow < q.amountIn) {
+        say(`Approve ${inSym()} for the Uniswap router in your wallet…`);
+        const h = await S.wallet.writeContract({ address: q.tIn, abi: ERC20, functionName: "approve", args: [ROUTER, q.amountIn] });
+        await read(c => c.waitForTransactionReceipt({ hash: h }));
+      }
+    }
+    // re-quote right before signing so the minimum reflects the current pool
+    const fresh = await best(q.tIn, q.tOut, q.amountIn);
+    if (!fresh) throw new Error("The pool has no quote right now.");
+    const min = fresh.out * BigInt(10000 - S.slip) / 10000n;
+    const swap = encodeFunctionData({ abi: RABI, functionName: "exactInputSingle", args: [{ tokenIn: q.tIn, tokenOut: q.tOut, fee: fresh.fee, recipient: S.account, amountIn: q.amountIn, amountOutMinimum: min, sqrtPriceLimitX96: 0n }] });
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 600);
+    const req = { address: ROUTER, abi: RABI, functionName: "multicall", args: [deadline, [swap]], account: S.account, value: eth ? q.amountIn : 0n };
+    say("Checking the trade against the pool…");
+    await read(c => c.simulateContract(req));
+    say("Confirm the trade in your wallet…");
+    const h = await S.wallet.writeContract(req);
+    say(`Sent. Waiting for Robinhood Chain… <a href="${CHAIN.blockExplorers.default.url}/tx/${h}" target="_blank" rel="noopener">view</a>`);
+    const r = await read(c => c.waitForTransactionReceipt({ hash: h }));
+    if (r.status !== "success") throw new Error("The trade reverted. Nothing was swapped.");
+    say(`Done. <a href="${CHAIN.blockExplorers.default.url}/tx/${h}" target="_blank" rel="noopener">See it on the explorer</a>`, "ok");
+    $("amt").value = ""; S.quote = null; quote(); balances();
+  } catch (e) { say(e.shortMessage || e.message || "Trade cancelled.", "err"); }
+  ui();
+}
+
+/* wiring */
+$("connect").onclick = connect;
+$("go").onclick = trade;
+$("amt").oninput = requote;
+$("balIn").onclick = () => { const v = Number($("balIn").dataset.v || 0); if (v > 0) { $("amt").value = String(inSym() === "ETH" ? Math.max(0, v - .0005).toFixed(6) : v); requote(); } };
+document.querySelectorAll("[data-side]").forEach(b => b.onclick = () => { S.side = b.dataset.side; document.querySelectorAll("[data-side]").forEach(x => x.setAttribute("aria-pressed", x === b)); $("payL").textContent = S.side === "buy" ? "You pay" : "You sell"; tokens(); requote(); });
+document.querySelectorAll("[data-s]").forEach(b => b.onclick = () => { S.slip = +b.dataset.s; document.querySelectorAll("[data-s]").forEach(x => x.setAttribute("aria-pressed", x === b)); requote(); });
+if (window.ethereum) {
+  window.ethereum.on?.("accountsChanged", a => { S.account = a[0] || null; $("connect").textContent = S.account ? short(S.account) : "Connect wallet"; if (S.account) S.wallet = createWalletClient({ chain: CHAIN, transport: custom(window.ethereum), account: S.account }); balances(); ui(); });
+  window.ethereum.request({ method: "eth_accounts" }).then(a => { if (a[0]) connect(); }).catch(() => {});
+}
+renderList(); tokens(); ui();
+(async () => { for (const s of STOCKS) await priceRow(s); })();
+async function tick() { try { const b = await read(c => c.getBlockNumber()); $("block").textContent = "block " + Number(b).toLocaleString("en-US"); $("chain").classList.add("live"); } catch { $("chain").classList.remove("live"); } }
+tick(); setInterval(tick, 6000);
+</script>
+</body>
+</html>

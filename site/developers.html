@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Masque Developers</title>
+<meta name="description" content="Contracts, events and code to read stock-token prices and trade them on Robinhood Chain, the way the Masque terminal does.">
+<meta property="og:title" content="Masque Developers">
+<meta property="og:description" content="Contracts, events and code for stock tokens on Robinhood Chain.">
+<meta name="theme-color" content="#060606">
+<link rel="icon" type="image/svg+xml" href="brand/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Manrope:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="docs.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header>
+  <div class="hl">
+    <a class="mark" href="./" aria-label="Masque home"><svg viewBox="0 11 64 32" style="width:44px;height:22px" aria-hidden="true"><defs><linearGradient id="mqg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6dc96"/><stop offset=".5" stop-color="#d9a548"/><stop offset="1" stop-color="#9a6a22"/></linearGradient></defs> <path fill="url(#mqg)" fill-rule="evenodd" d="M1.5 15 C7 21 13 20.5 19 22 C25 23.5 28.5 25.5 32 25.5 C35.5 25.5 39 23.5 45 22 C51 20.5 57 21 62.5 15 C62.5 30 56 41 46 41 C40 41 36 37.5 32 33 C28 37.5 24 41 18 41 C8 41 1.5 30 1.5 15Z M10.5 29.5 C14.5 25 22 25 26.5 30 C22 33 15 33 10.5 29.5Z M37.5 30 C42 25 49.5 25 53.5 29.5 C49 33 42 33 37.5 30Z"/> <path fill="url(#mqg)" d="M32 13 L35 18.5 L32 24 L29 18.5Z"/> <path fill="none" stroke="#0a0908" stroke-width=".7" opacity=".5" d="M5 20.5 C9 23.5 14 23.8 19 25 C25 26.6 28.5 28.4 32 28.4 C35.5 28.4 39 26.6 45 25 C50 23.8 55 23.5 59 20.5"/></svg>MASQUE</a>
+    <nav aria-label="Main"><a href="docs.html">Docs</a><a href="developers.html" aria-current="page">Developers</a></nav>
+  </div>
+  <div class="hr">
+    <a class="ic" href="https://x.com/kestrelworks" target="_blank" rel="noopener" aria-label="Masque on X"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.2 2.3h3.4l-7.4 8.4 8.7 11.5h-6.8l-5.3-7-6.1 7H1.3l7.9-9L.9 2.3h7l4.8 6.4 5.5-6.4zm-1.2 17.9h1.9L6.9 4.2H4.9l12.1 16z"/></svg></a>
+    <a class="ic" id="gh-link" href="#" target="_blank" rel="noopener" aria-label="Masque on GitHub" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.6 22.4c.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.8.8 1.2 1.9 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.2c0 .3.2.7.8.6A11.5 11.5 0 0 0 12 .5z"/></svg></a>
+    <a class="app" href="app.html">Launch app</a>
+  </div>
+</header>
+
+<div class="doc">
+  <aside class="toc" aria-label="On this page">
+    <p>Developers</p>
+    <a href="#network">Network</a>
+    <a href="#contracts">Contracts</a>
+    <a href="#tokens">Stock tokens</a>
+    <a href="#price">Read a price</a>
+    <a href="#trade">Build a swap</a>
+    <a href="#events">Pons events</a>
+  </aside>
+
+  <main id="main">
+    <h1>Build on the same reads.</h1>
+    <p class="lede">Everything the Masque terminal shows comes from public contracts on Robinhood Chain. These are the addresses, events and calls it uses, so you can check them or build your own.</p>
+
+    <section id="network">
+      <h2>Network</h2>
+      <dl class="facts">
+        <div><dt>Chain</dt><dd>Robinhood Chain, id <code class="i">4663</code></dd></div>
+        <div><dt>RPC</dt><dd><code class="i">https://rpc.mainnet.chain.robinhood.com</code></dd></div>
+        <div><dt>Explorer</dt><dd><a href="https://robinhoodchain.blockscout.com" target="_blank" rel="noopener">robinhoodchain.blockscout.com</a></dd></div>
+        <div><dt>Native gas</dt><dd>ETH</dd></div>
+      </dl>
+      <p>The official RPC answers log queries. Public mirrors may refuse <code class="i">eth_getLogs</code> without a key, so read events from the official endpoint.</p>
+    </section>
+
+    <section id="contracts">
+      <h2>Contracts</h2>
+      <p>Uniswap v3 on Robinhood Chain. Router and quoter were checked on chain: both return the same <code class="i">factory()</code> and <code class="i">WETH9()</code> as the live pools.</p>
+      <div class="scroll"><table class="tbl">
+        <thead><tr><th>Contract</th><th>Address</th><th>Used for</th></tr></thead>
+        <tbody>
+          <tr><td>UniswapV3Factory</td><td><code>0x1f7d7550b1b028f7571e69a784071f0205fd2efa</code></td><td>getPool for a pair and fee</td></tr>
+          <tr><td>SwapRouter02</td><td><code>0xcaf681a66d020601342297493863e78c959e5cb2</code></td><td>exactInputSingle via multicall</td></tr>
+          <tr><td>QuoterV2</td><td><code>0x33e885ed0ec9bf04ecfb19341582aadcb4c8a9e7</code></td><td>quotes, called with eth_call</td></tr>
+          <tr><td>WETH</td><td><code>0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73</code></td><td>ETH side of pools</td></tr>
+          <tr><td>USDG</td><td><code>0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168</code></td><td>dollar side, 6 decimals</td></tr>
+          <tr><td>Pons factory</td><td><code>0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e</code></td><td>launch and curve events</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="tokens">
+      <h2>Stock tokens</h2>
+      <p>Each token pairs with a Chainlink feed for the same stock. The terminal compares the two to show the gap.</p>
+      <div class="scroll"><table class="tbl" id="tok"><thead><tr><th>Ticker</th><th>Token</th><th>Chainlink feed</th></tr></thead><tbody></tbody></table></div>
+    </section>
+
+    <section id="price">
+      <h2>Read a price</h2>
+      <p>Quote one share against USDG on every fee tier that has a pool, and keep the best. Run with <code class="i">viem</code> in Node or the browser.</p>
+<pre><button class="copy" type="button">Copy</button><code><span class="k">import</span> { createPublicClient, http, parseAbi, parseUnits, formatUnits } <span class="k">from</span> <span class="s">"viem"</span>;
+
+<span class="k">const</span> client = createPublicClient({ transport: http(<span class="s">"https://rpc.mainnet.chain.robinhood.com"</span>) });
+<span class="k">const</span> FACTORY = <span class="s">"0x1f7d7550b1b028f7571e69a784071f0205fd2efa"</span>, QUOTER = <span class="s">"0x33e885ed0ec9bf04ecfb19341582aadcb4c8a9e7"</span>;
+<span class="k">const</span> USDG = <span class="s">"0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"</span>, NVDA = <span class="s">"0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC"</span>;
+
+<span class="k">const</span> F = parseAbi([<span class="s">"function getPool(address,address,uint24) view returns (address)"</span>]);
+<span class="k">const</span> Q = parseAbi([<span class="s">"function quoteExactInputSingle((address tokenIn,address tokenOut,uint256 amountIn,uint24 fee,uint160 sqrtPriceLimitX96)) returns (uint256,uint160,uint32,uint256)"</span>]);
+
+<span class="k">let</span> best = 0n;
+<span class="k">for</span> (<span class="k">const</span> fee <span class="k">of</span> [100, 500, 3000, 10000]) {
+  <span class="k">const</span> pool = <span class="k">await</span> client.readContract({ address: FACTORY, abi: F, functionName: <span class="s">"getPool"</span>, args: [NVDA, USDG, fee] });
+  <span class="k">if</span> (/^0x0+$/.test(pool)) <span class="k">continue</span>;           <span class="c">// no pool at this fee</span>
+  <span class="k">const</span> { result } = <span class="k">await</span> client.simulateContract({ address: QUOTER, abi: Q, functionName: <span class="s">"quoteExactInputSingle"</span>,
+    args: [{ tokenIn: NVDA, tokenOut: USDG, amountIn: parseUnits(<span class="s">"1"</span>, 18), fee, sqrtPriceLimitX96: 0n }] });
+  <span class="k">if</span> (result[0] > best) best = result[0];
+}
+console.log(<span class="s">"1 NVDA ="</span>, formatUnits(best, 6), <span class="s">"USDG"</span>);</code></pre>
+      <p>Read the token's <code class="i">decimals()</code> instead of assuming 18 when you adapt this.</p>
+    </section>
+
+    <section id="trade">
+      <h2>Build a swap</h2>
+      <p>The terminal wraps one <code class="i">exactInputSingle</code> in <code class="i">multicall(deadline, data)</code>, sets the minimum out from a fresh quote and the user's slippage, and simulates before asking the wallet to sign. When paying with ETH, send the amount as <code class="i">value</code>; the router wraps it.</p>
+<pre><button class="copy" type="button">Copy</button><code><span class="k">const</span> R = parseAbi([
+  <span class="s">"function exactInputSingle((address tokenIn,address tokenOut,uint24 fee,address recipient,uint256 amountIn,uint256 amountOutMinimum,uint160 sqrtPriceLimitX96)) payable returns (uint256)"</span>,
+  <span class="s">"function multicall(uint256 deadline,bytes[] data) payable returns (bytes[])"</span>,
+]);
+<span class="k">const</span> min = quoteOut * (10000n - 50n) / 10000n;          <span class="c">// 0.5% slippage</span>
+<span class="k">const</span> swap = encodeFunctionData({ abi: R, functionName: <span class="s">"exactInputSingle"</span>,
+  args: [{ tokenIn: WETH, tokenOut: NVDA, fee, recipient: account, amountIn, amountOutMinimum: min, sqrtPriceLimitX96: 0n }] });
+<span class="k">const</span> req = { address: ROUTER, abi: R, functionName: <span class="s">"multicall"</span>,
+  args: [BigInt(Math.floor(Date.now() / 1000) + 600), [swap]], account, value: amountIn };
+<span class="k">await</span> publicClient.simulateContract(req);              <span class="c">// fails here, not in the wallet</span>
+<span class="k">const</span> hash = <span class="k">await</span> walletClient.writeContract(req);</code></pre>
+    </section>
+
+    <section id="events">
+      <h2>Pons events</h2>
+      <p>The Launches tab filters the Pons factory by the launch topic. Topic 1 is the new token, topic 2 the creator.</p>
+      <div class="scroll"><table class="tbl">
+        <thead><tr><th>Event</th><th>Topic 0</th></tr></thead>
+        <tbody>
+          <tr><td>TokenLaunched</td><td><code>0x8d4aad4953d0ca700d468f3753aa14432d1b35b43ec6409f051fb6aa43a89607</code></td></tr>
+          <tr><td>CurveBuy</td><td><code>0xec36bf571f136799e8dc0b0b8bea4b04d8bd3d43de838aab0d5fc21d4cbfc455</code></td></tr>
+          <tr><td>CurveSell</td><td><code>0x8113d738abdcb6b38357e9d53a54a7157861a09031b453651f0fe7fe151f59df</code></td></tr>
+        </tbody>
+      </table></div>
+      <p class="fine">Addresses above were read from Robinhood Chain on 8 November 2026. Check them on the explorer before you send value. Not affiliated with Robinhood, Uniswap or Pons.</p>
+    </section>
+  </main>
+</div>
+<script>
+const LINKS = { github: "" };
+if (LINKS.github) { const a = document.getElementById("gh-link"); a.href = LINKS.github; a.hidden = false; }
+const TOKENS = [
+  ["TSLA", "0x322F0929c4625eD5bAd873c95208D54E1c003b2d", "0x4A1166a659A55625345e9515b32adECea5547C38"], ["NVDA", "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC", "0x379EC4f7C378F34a1B47E4F3cbeBCbAC3E8E9F15"],
+  ["AAPL", "0xaF3D76f1834A1d425780943C99Ea8A608f8a93f9", "0x6B22A786bAa607d76728168703a39Ea9C99f2cD0"], ["GOOGL", "0x2e0847E8910a9732eB3fb1bb4b70a580ADAD4FE3", "0xF6f373a037c30F0e5010d854385cA89185AE638b"],
+  ["AMZN", "0x12f190a9F9d7D37a250758b26824B97CE941bF54", "0xD5a1508ceD74c084eBf3cBe853e2C968fB2a651C"], ["META", "0xc0D6457C16Cc70d6790Dd43521C899C87ce02f35", "0x7C38C00C30BEe9378381E7B6135d7283356D71b1"],
+  ["MSFT", "0xe93237C50D904957Cf27E7B1133b510C669c2e74", "0x45C3C877C15E6BA2EBB19eA114Ea508d14C1Af2E"], ["AMD", "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC", "0x943A29E7ae51A4798823ca9eEd2ed533B2A22C72"],
+  ["COIN", "0x6330D8C3178a418788dF01a47479c0ce7CCF450b", "0xA3a468A452940B7D6b69991207B508c609a98Ef2"], ["MSTR", "0xec262a75e413fAfD0dF80480274532C79D42da09", "0x396118bdFB181e6240E74D243F266B061c0edc3D"],
+  ["PLTR", "0x894E1EC2D74FFE5AEF8Dc8A9e84686acCB964F2A", "0x820ABedFF239034956B7A9d2F0a331f9F075eB4c"], ["SPY", "0x117cc2133c37B721F49dE2A7a74833232B3B4C0C", "0x319724394D3A0e3669269846abE664Cd621f9f6A"],
+];
+const X = "https://robinhoodchain.blockscout.com/address/";
+document.querySelector("#tok tbody").innerHTML = TOKENS.map(([t, a, f]) => `<tr><td><b>${t}</b></td><td><a href="${X + a}" target="_blank" rel="noopener"><code>${a}</code></a></td><td><a href="${X + f}" target="_blank" rel="noopener"><code>${f}</code></a></td></tr>`).join("");
+document.querySelectorAll(".copy").forEach(b => b.onclick = () => navigator.clipboard?.writeText(b.nextElementSibling.textContent).then(() => { b.textContent = "Copied"; setTimeout(() => b.textContent = "Copy", 1400); }).catch(() => {}));
+const toc = [...document.querySelectorAll(".toc a")];
+const spy = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) toc.forEach(a => a.toggleAttribute("data-on", a.getAttribute("href") === "#" + e.target.id)); }), { rootMargin: "-30% 0px -60% 0px" });
+document.querySelectorAll("main section").forEach(s => spy.observe(s));
+</script>
+</body>
+</html>

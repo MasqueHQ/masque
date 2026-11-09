@@ -1,0 +1,5 @@
+{
+  "name": "masque-contracts",
+  "private": true,
+  "scripts": { "test": "hardhat test" }
+}
