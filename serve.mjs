@@ -17,7 +17,7 @@ const HOST = "rpc.mainnet.chain.robinhood.com", FALLBACK_IP = "104.20.46.209";
 const READS = new Set(["eth_blockNumber", "eth_chainId", "net_version", "eth_call", "eth_getLogs", "eth_getBlockByNumber", "eth_getBalance",
   "eth_getCode", "eth_getTransactionReceipt", "eth_getTransactionByHash", "eth_estimateGas", "eth_gasPrice", "eth_maxPriorityFeePerGas", "eth_feeHistory", "eth_getTransactionCount"]);
 const TYPES = { ".html": "text/html; charset=utf-8", ".css": "text/css", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json",
-  ".jpg": "image/jpeg", ".png": "image/png", ".svg": "image/svg+xml", ".webp": "image/webp", ".ico": "image/x-icon", ".glb": "model/gltf-binary", ".txt": "text/plain" };
+  ".jpg": "image/jpeg", ".png": "image/png", ".svg": "image/svg+xml", ".webp": "image/webp", ".ico": "image/x-icon", ".glb": "model/gltf-binary", ".txt": "text/plain", ".mp4": "video/mp4", ".webm": "video/webm" };
 
 const TEST = { host: "rpc.testnet.chain.robinhood.com", ip: FALLBACK_IP, reads: new Set([...READS, "eth_sendRawTransaction", "web3_clientVersion"]) };
 let ip = FALLBACK_IP;
@@ -77,6 +77,16 @@ http.createServer((req, res) => {
   let p = path.normalize(path.join(ROOT, decodeURIComponent(url.pathname)));
   if (!p.startsWith(ROOT)) return send(res, 403, "no");
   if (fs.existsSync(p) && fs.statSync(p).isDirectory()) p = path.join(p, "index.html");
+  // video: stream with byte ranges so the browser can start playing and seek
+  if ([".mp4", ".webm"].includes(path.extname(p)) && fs.existsSync(p)) {
+    const size = fs.statSync(p).size, m = /bytes=(\d*)-(\d*)/.exec(req.headers.range || "");
+    const head = { "content-type": TYPES[path.extname(p)], "accept-ranges": "bytes", "cache-control": "no-cache", ...SAFE };
+    if (!m) { res.writeHead(200, { ...head, "content-length": size }); return fs.createReadStream(p).pipe(res); }
+    const start = m[1] ? +m[1] : Math.max(0, size - +m[2]), end = m[1] && m[2] ? Math.min(+m[2], size - 1) : size - 1;
+    if (start >= size || start > end) { res.writeHead(416, { "content-range": `bytes */${size}` }); return res.end(); }
+    res.writeHead(206, { ...head, "content-range": `bytes ${start}-${end}/${size}`, "content-length": end - start + 1 });
+    return fs.createReadStream(p, { start, end }).pipe(res);
+  }
   fs.readFile(p, (e, data) => {
     if (e) return send(res, 404, "not found");
     res.writeHead(200, { "content-type": TYPES[path.extname(p)] || "application/octet-stream", "cache-control": "no-cache", ...SAFE });
