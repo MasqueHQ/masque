@@ -40,7 +40,7 @@ npx hardhat test
 
 ## Links
 
-- Site: coming soon
+- Site: [masquehq.xyz](https://masquehq.xyz)
 - X: [@kestrelworks](https://x.com/kestrelworks)
 - Code: [github.com/MasqueHQ/masque](https://github.com/MasqueHQ/masque)
 
