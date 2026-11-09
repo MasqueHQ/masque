@@ -18,7 +18,7 @@ Masque never holds user funds. The site reads the chain in your browser and ever
 
 ## Demo
 
-Watch the 45-second demo: [site/media/masque-demo.mp4](site/media/masque-demo.mp4)
+Watch the 38-second demo: [site/media/masque-demo.mp4](site/media/masque-demo.mp4)
 
 ## Run it locally
 
