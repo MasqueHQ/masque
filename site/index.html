@@ -101,6 +101,11 @@ h3{font:400 clamp(1.9rem,2.7vw,2.5rem)/1.05 var(--serif)}
 .btn:active{transform:scale(.98)}
 .tl{font:500 .74rem var(--f);letter-spacing:.14em;text-transform:uppercase;text-decoration:none;color:var(--tx-2);border-bottom:1px solid var(--line-2);padding-bottom:4px;transition:color .25s,border-color .25s}
 .tl:hover{color:var(--tx);border-color:var(--gold)}
+button.tl{background:none;border-width:0 0 1px;cursor:pointer}
+.play{display:inline-flex;align-items:center;gap:9px}.play i{width:0;height:0;border-left:7px solid var(--gold);border-top:4.5px solid transparent;border-bottom:4.5px solid transparent}
+#demo{width:min(1100px,94vw);margin:auto;padding:0;border:1px solid var(--line-2);background:#000}#demo::backdrop{background:rgba(5,4,3,.86);backdrop-filter:blur(4px)}
+#demo video{display:block;width:100%;height:auto}#demo form{position:absolute;top:8px;right:8px}
+#demo button{width:36px;height:36px;border:1px solid var(--line-2);background:rgba(10,9,8,.7);color:var(--tx);font:400 1.2rem/1 var(--f);cursor:pointer}
 .live{display:inline-flex;align-items:center;gap:10px;margin-top:46px;font:400 .72rem var(--m);color:var(--tx-3)}
 .live i{width:6px;height:6px;border-radius:50%;background:var(--tx-3)}
 .live.on i{background:#7fcf96;box-shadow:0 0 0 4px rgba(127,207,150,.14)}
@@ -188,7 +193,7 @@ footer a{text-decoration-color:var(--line-2);text-underline-offset:3px}
     <div class="in">
       <h1 class="rv">Justice is blind.</h1>
       <p class="lede rv">Markets on Robinhood Chain are open to everyone. Masque keeps one thing out of sight: who holds what.</p>
-      <div class="row rv"><a class="btn" href="app.html">Launch app</a><a class="tl" href="#ii">How she sees</a></div>
+      <div class="row rv"><a class="btn" href="app.html">Launch app</a><a class="tl" href="#ii">How she sees</a><button class="tl play" type="button" id="demo-open"><i aria-hidden="true"></i>Watch demo</button></div>
       <p class="ca ca-hero rv"><span>CA</span><code id="lb-ca" data-ca>Posted here at launch</code><button type="button" id="lb-copy">Copy</button></p>
       <p class="live rv" id="live"><i></i><span id="live-t">Robinhood Chain</span></p>
     </div>
@@ -242,7 +247,7 @@ footer a{text-decoration-color:var(--line-2);text-underline-offset:3px}
 
 <script>
 /* links: fill the GitHub repo when it exists; the icon stays hidden until then */
-const LINKS = { github: "" };
+const LINKS = { github: "https://github.com/MasqueHQ/masque" };
 if (LINKS.github) { const a = document.getElementById("gh-link"); a.href = LINKS.github; a.hidden = false; }
 (() => {
   const $ = id => document.getElementById(id);
@@ -355,6 +360,12 @@ const TOKEN = { ca: "", pons: "" };   // ca = 0x... contract, pons = token page 
     b.onclick = () => (navigator.clipboard ? navigator.clipboard.writeText(ca) : Promise.reject()).then(() => { b.textContent = "Copied"; setTimeout(() => b.textContent = "Copy", 1500); }).catch(() => {});
   } else { b.disabled = true; b.title = "Available at launch"; }
 })();
+</script>
+<dialog id="demo" aria-label="Masque demo video"><form method="dialog"><button aria-label="Close">&times;</button></form><video id="demo-v" src="media/masque-demo.mp4" poster="media/masque-demo.jpg" controls playsinline preload="none"></video></dialog>
+<script>
+(() => { const d = document.getElementById("demo"), v = document.getElementById("demo-v");
+  document.getElementById("demo-open").onclick = () => { d.showModal(); v.play().catch(() => {}); };
+  d.addEventListener("close", () => v.pause()); d.onclick = e => { if (e.target === d) d.close(); }; })();
 </script>
 </body>
 </html>

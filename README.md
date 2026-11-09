@@ -16,6 +16,10 @@ A non-custodial terminal for stock tokens on Robinhood Chain. Markets stay publi
 
 Masque never holds user funds. The site reads the chain in your browser and every trade is sent from your wallet.
 
+## Demo
+
+Watch the 45-second demo: [site/media/masque-demo.mp4](site/media/masque-demo.mp4)
+
 ## Run it locally
 
 ```bash

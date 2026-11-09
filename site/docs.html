@@ -153,7 +153,7 @@
   </main>
 </div>
 <script>
-const LINKS = { github: "" };
+const LINKS = { github: "https://github.com/MasqueHQ/masque" };
 if (LINKS.github) { const a = document.getElementById("gh-link"); a.href = LINKS.github; a.hidden = false; }
 const toc = [...document.querySelectorAll(".toc a")];
 const spy = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) toc.forEach(a => a.toggleAttribute("data-on", a.getAttribute("href") === "#" + e.target.id)); }), { rootMargin: "-30% 0px -60% 0px" });
